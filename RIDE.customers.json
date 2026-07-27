@@ -1,0 +1,63 @@
+[{
+  "_id": {
+    "$oid": "6a672ba3e5d462c68efe89ad"
+  },
+  "name": "Test Rider",
+  "email": "testrider@example.com",
+  "phone": "+91 98450 12345",
+  "password": "$2b$10$9yJO7Zy.PvF6jiLtwONcr.Dxe6Ypa9pSIDCY18/yeH7qJ5C9XFwEy",
+  "role": "customer",
+  "createdAt": {
+    "$date": "2026-07-27T09:57:55.451Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6a672d9beed89937585c707c"
+  },
+  "name": "Alex Morgan",
+  "email": "alex.morgan@example.com",
+  "age": 28,
+  "gender": "female",
+  "password": "$2b$10$zGTKWSCiPJLOSDetW56Z5esXNrGcicWxTcBx3rjjLqBYsCDlKrKJa",
+  "role": "customer",
+  "createdAt": {
+    "$date": "2026-07-27T10:06:19.882Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6a672edf419e64b6ddb5faf7"
+  },
+  "name": "John Driver",
+  "email": "john.driver@example.com",
+  "phone": "+91 98765 43210",
+  "password": "$2b$10$YvPqlOWgJHrGEx4WuBO4RO3hSeesACxV1Trz1a2Ay8YVgw7cQKDOq",
+  "role": "customer",
+  "createdAt": {
+    "$date": "2026-07-27T10:11:43.497Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-27T10:11:43.497Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6a67328f419e64b6ddb5faf8"
+  },
+  "name": "Flora abraham",
+  "email": "floramol@gmail.com",
+  "phone": "+91 98765 43210",
+  "password": "$2b$10$HvaNt6NI7dawYKqGJEpSPOJECs4zaDczz5BX3hgwHlsjmUsbiY656",
+  "role": "customer",
+  "createdAt": {
+    "$date": "2026-07-27T10:27:27.609Z"
+  },
+  "updatedAt": {
+    "$date": "2026-07-27T10:27:27.609Z"
+  },
+  "__v": 0
+}]
