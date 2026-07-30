@@ -1,11 +1,11 @@
 /**
- * Re-exports the shared Driv-A-Long pricing engine for use inside the
- * booking UI components. See `src/lib/pricing.ts` for the formula:
- *   Total Fare = ₹299 (base) + (Distance × ₹13/km) + (Duration in hrs × ₹120/hr)
+ * Re-exports the shared Driv-A-Long Chauffeur pricing engine for use inside the
+ * booking UI components.
  */
 export {
   PRICING,
-  VEHICLE_MULTIPLIERS,
+  CHAUFFEUR_SERVICES,
+  DURATION_HOURS,
   calculateFare,
   computeHaversineDistance,
   formatDuration,
@@ -13,4 +13,4 @@ export {
   formatCurrency,
   computeEtaDate,
 } from "@/lib/pricing";
-export type { VehicleType, FareBreakdown } from "@/lib/pricing";
+export type { ServiceType, DurationOption, FareBreakdown } from "@/lib/pricing";

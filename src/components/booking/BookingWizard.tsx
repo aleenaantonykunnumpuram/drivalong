@@ -4,52 +4,61 @@ import {
   MapPin, Navigation, ArrowRight, ArrowLeft, Car, RouteIcon, Clock, Calendar,
   Users, Briefcase, Snowflake, Cog, CheckCircle2, CreditCard, Wallet, Banknote,
   Star, Phone, MessageSquare, Share2, Download, Home, Sparkles, Zap, Lock, ShieldCheck, Loader2, CheckSquare, Square, X,
+  Shield, UserCheck, Plane, Award, Building2, PartyPopper, Compass
 } from "lucide-react";
 import { GoogleMapComponent, type TripMetrics } from "./maps/GoogleMapComponent";
-import { formatCurrency, VEHICLE_MULTIPLIERS, PRICING } from "./maps/fareUtils";
+import { formatCurrency, CHAUFFEUR_SERVICES, DURATION_HOURS, type ServiceType, type DurationOption } from "./maps/fareUtils";
 import { createBooking } from "@/lib/api/trip.functions";
 
-type TripType = "one-way" | "round" | "outstation" | "rental";
-type Vehicle = "hatchback" | "sedan" | "suv" | "luxury" | "ev";
 type Transmission = "automatic" | "manual";
 type Timing = "now" | "later";
-type Package = "1h" | "2h" | "3h" | "4h" | "payg";
 type PayMode = "before" | "after";
 
 interface State {
   step: number;
+  serviceType: ServiceType;
   pickup: string;
   drop: string;
   pickupCoords: { lat: number; lng: number } | null;
   dropCoords: { lat: number; lng: number } | null;
-  tripType: TripType;
-  vehicle: Vehicle;
   transmission: Transmission;
   timing: Timing;
   date: string;
   time: string;
-  pkg: Package;
+  duration: DurationOption;
+  specialInstructions: string;
   payMode: PayMode;
   payMethod: string;
   tripMetrics: TripMetrics | null;
 }
 
-const STEPS = ["Location", "Trip Type", "Vehicle", "Pricing", "Payment", "Confirmed"];
+const STEPS = ["Service", "Pickup", "Schedule", "Duration", "Payment", "Confirmed"];
+
+const SERVICE_ICONS: Record<ServiceType, any> = {
+  "One-Way Chauffeur": Compass,
+  "Hourly Chauffeur": Clock,
+  "Full-Day Chauffeur": Award,
+  "Airport Chauffeur": Plane,
+  "Designated Driver": Shield,
+  "Corporate Chauffeur": Building2,
+  "Event Chauffeur": PartyPopper,
+  "Outstation Chauffeur": Navigation,
+};
 
 export function BookingWizard() {
   const [s, setS] = useState<State>({
     step: 0,
+    serviceType: "Hourly Chauffeur",
     pickup: "",
     drop: "",
     pickupCoords: null,
     dropCoords: null,
-    tripType: "one-way",
-    vehicle: "sedan",
     transmission: "automatic",
     timing: "now",
     date: new Date().toISOString().slice(0, 10),
     time: "18:30",
-    pkg: "payg",
+    duration: "4 Hours",
+    specialInstructions: "",
     payMode: "before",
     payMethod: "UPI",
     tripMetrics: null,
@@ -63,19 +72,19 @@ export function BookingWizard() {
     <div className="rounded-[28px] border border-border bg-background shadow-lift">
       <div className="border-b border-border p-6 md:p-8">
         <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
-          <Sparkles className="h-3.5 w-3.5" /> Booking
+          <Sparkles className="h-3.5 w-3.5" /> Chauffeur Rental · Your Driver, Your Car
         </div>
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          {s.step < 5 ? "Let's set up your ride" : "You're all set."}
+          {s.step < 5 ? "Book a Professional Chauffeur" : "Chauffeur Booking Confirmed"}
         </h1>
         <ProgressBar step={s.step} />
       </div>
 
       <div className="p-6 md:p-8">
-        {s.step === 0 && <StepLocation s={s} set={set} onNext={next} />}
-        {s.step === 1 && <StepTripType s={s} set={set} onNext={next} onBack={back} />}
-        {s.step === 2 && <StepVehicle s={s} set={set} onNext={next} onBack={back} />}
-        {s.step === 3 && <StepPricing s={s} onNext={next} onBack={back} />}
+        {s.step === 0 && <StepSelectService s={s} set={set} onNext={next} />}
+        {s.step === 1 && <StepPickup s={s} set={set} onNext={next} onBack={back} />}
+        {s.step === 2 && <StepSchedule s={s} set={set} onNext={next} onBack={back} />}
+        {s.step === 3 && <StepDuration s={s} set={set} onNext={next} onBack={back} />}
         {s.step === 4 && <StepPayment s={s} set={set} onNext={next} onBack={back} />}
         {s.step === 5 && <StepConfirmation s={s} />}
       </div>
@@ -103,16 +112,87 @@ function ProgressBar({ step }: { step: number }) {
     </div>
   );
 }
-/* ------------------------ Step 1 · Location ------------------------ */
 
-function StepLocation({ s, set, onNext }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void }) {
-  const canContinue = Boolean(s.tripMetrics);
+/* ------------------------ Step 1 · Select Service ------------------------ */
+
+function StepSelectService({ s, set, onNext }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void }) {
+  const services = Object.entries(CHAUFFEUR_SERVICES) as [ServiceType, typeof CHAUFFEUR_SERVICES[ServiceType]][];
+
+  return (
+    <div className="animate-rise space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Select Chauffeur Service</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">We provide verified professional drivers to drive your own car.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {services.map(([key, service]) => {
+          const IconComponent = SERVICE_ICONS[key] || UserCheck;
+          const isSelected = s.serviceType === key;
+
+          return (
+            <div
+              key={key}
+              onClick={() => set("serviceType", key)}
+              className={`group cursor-pointer rounded-3xl border-2 p-5 transition flex flex-col justify-between ${
+                isSelected
+                  ? "border-primary bg-primary/5 shadow-soft ring-1 ring-primary/30"
+                  : "border-border bg-background hover:border-primary/50 hover:shadow-soft"
+              }`}
+            >
+              <div>
+                <div className={`mb-3 grid h-12 w-12 place-items-center rounded-2xl transition ${
+                  isSelected ? "bg-primary text-primary-foreground" : "bg-subtle text-primary group-hover:bg-primary/10"
+                }`}>
+                  <IconComponent className="h-6 w-6" />
+                </div>
+                <h4 className="font-semibold text-base text-foreground">{service.title}</h4>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{service.description}</p>
+              </div>
+
+              <div className="mt-5 border-t border-border/60 pt-3 flex items-center justify-between">
+                <span className="text-xs font-bold text-primary">From ₹{service.baseFare}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    set("serviceType", key);
+                    onNext();
+                  }}
+                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                    isSelected ? "bg-primary text-primary-foreground" : "bg-subtle text-foreground hover:bg-primary hover:text-primary-foreground"
+                  }`}
+                >
+                  Book Now
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end pt-4">
+        <button
+          onClick={onNext}
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+        >
+          Continue to Pickup Location <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------ Step 2 · Pickup Location ------------------------ */
+
+function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
   return (
     <div className="animate-rise space-y-6">
       <GoogleMapComponent
         pickup={s.pickup}
         drop={s.drop}
-        vehicleType={s.vehicle}
+        serviceType={s.serviceType}
+        duration={s.duration}
         onPickupChange={(v, coords) => {
           set("pickup", v);
           if (coords) set("pickupCoords", coords);
@@ -124,14 +204,13 @@ function StepLocation({ s, set, onNext }: { s: State; set: <K extends keyof Stat
         onMetricsCalculated={(metrics) => set("tripMetrics", metrics)}
       />
 
-      <div className="flex items-center justify-end gap-3">
-        {!canContinue && (
-          <p className="text-xs text-muted-foreground">Select pickup & drop-off to continue</p>
-        )}
+      <div className="flex items-center justify-between pt-2">
+        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <button
           onClick={onNext}
-          disabled={!canContinue}
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
         >
           Continue <ArrowRight className="h-4 w-4" />
         </button>
@@ -140,239 +219,167 @@ function StepLocation({ s, set, onNext }: { s: State; set: <K extends keyof Stat
   );
 }
 
-function LocationField({ dot, label, value, onChange, suggestions, rightAction }: { dot: "primary" | "secondary"; label: string; value: string; onChange: (v: string) => void; suggestions: string[]; rightAction?: React.ReactNode }) {
-  const [focus, setFocus] = useState(false);
+/* ------------------------ Step 3 · Schedule & Transmission ------------------------ */
+
+function StepSchedule({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
   return (
-    <div className="relative">
-      <label className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-        <span>{label}</span> {rightAction}
-      </label>
-      <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring">
-        <span className={`h-2.5 w-2.5 shrink-0 ${dot === "primary" ? "rounded-full bg-primary" : "rounded-sm bg-secondary"}`} />
-        <input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocus(true)}
-          onBlur={() => setTimeout(() => setFocus(false), 150)}
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          placeholder="Start typing…"
-        />
+    <div className="animate-rise space-y-6 max-w-2xl mx-auto">
+      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-5">
+        <div>
+          <h3 className="text-lg font-semibold">Transmission & Booking Time</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Specify your car's transmission type so we assign a qualified driver.</p>
+        </div>
+
+        {/* Transmission Selection */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your Vehicle Transmission</label>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {(["automatic", "manual"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => set("transmission", t)}
+                className={`rounded-2xl border-2 p-4 text-left transition ${
+                  s.transmission === t ? "border-primary bg-primary/5 shadow-soft" : "border-border bg-background hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold capitalize">
+                  <Cog className={`h-4 w-4 ${s.transmission === t ? "text-primary" : "text-muted-foreground"}`} />
+                  {t} Transmission
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t === "automatic" ? "Automated / AMT / Dual Clutch" : "Manual 5/6 Speed Stick Shift"}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Booking Timing */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">When do you need the driver?</label>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {(["now", "later"] as const).map((tm) => (
+              <button
+                key={tm}
+                type="button"
+                onClick={() => set("timing", tm)}
+                className={`rounded-2xl border-2 p-4 text-left transition ${
+                  s.timing === tm ? "border-primary bg-primary/5 shadow-soft" : "border-border bg-background hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Clock className={`h-4 w-4 ${s.timing === tm ? "text-primary" : "text-muted-foreground"}`} />
+                  {tm === "now" ? "Immediate Pickup (15-20 min)" : "Schedule for Later"}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {s.timing === "later" && (
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={s.date}
+                onChange={(e) => set("date", e.target.value)}
+                className="mt-1.5 w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Time</label>
+              <input
+                type="time"
+                value={s.time}
+                onChange={(e) => set("time", e.target.value)}
+                className="mt-1.5 w-full rounded-2xl border border-border bg-background px-4 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+        )}
       </div>
-      {focus && (
-        <div className="absolute z-10 mt-1.5 w-full overflow-hidden rounded-2xl border border-border bg-background shadow-lift">
-          {suggestions.filter((x) => x.toLowerCase().includes(value.toLowerCase()) || value === "").slice(0, 4).map((sg, i) => (
-            <button key={i} onMouseDown={() => onChange(sg)} className="flex w-full items-center gap-3 border-b border-border px-4 py-3 text-left text-sm last:border-0 hover:bg-muted">
-              <MapPin className="h-4 w-4 text-primary" />
-              <span>{sg}</span>
+
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <button
+          onClick={onNext}
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+        >
+          Continue to Duration <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------ Step 4 · Service Duration ------------------------ */
+
+function StepDuration({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
+  const durationOptions: DurationOption[] = [
+    "1 Hour",
+    "2 Hours",
+    "4 Hours",
+    "6 Hours",
+    "8 Hours",
+    "12 Hours",
+    "Full Day",
+  ];
+
+  return (
+    <div className="animate-rise space-y-6 max-w-3xl mx-auto">
+      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-5">
+        <div>
+          <h3 className="text-lg font-semibold">Select Service Duration</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Choose how long you require the chauffeur driver.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {durationOptions.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => set("duration", opt)}
+              className={`rounded-2xl border-2 p-4 text-center transition ${
+                s.duration === opt ? "border-primary bg-primary text-primary-foreground shadow-soft" : "border-border bg-background hover:border-primary/50"
+              }`}
+            >
+              <div className="text-base font-bold">{opt}</div>
+              <div className={`mt-1 text-[11px] ${s.duration === opt ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                {opt === "Full Day" ? "24 Hours max" : `${DURATION_HOURS[opt]} hrs included`}
+              </div>
             </button>
           ))}
         </div>
-      )}
-    </div>
-  );
-}
 
-function MapPreview() {
-  return (
-    <div className="relative min-h-[280px] overflow-hidden rounded-3xl border border-border bg-subtle">
-      <div className="absolute inset-0 grid-bg" />
-      <div className="absolute inset-0">
-        {/* fake roads */}
-        <svg className="h-full w-full" viewBox="0 0 400 300" preserveAspectRatio="none">
-          <path d="M0 220 C 80 180, 160 260, 240 200 S 380 120, 400 140" stroke="#E5EAF2" strokeWidth="14" fill="none" strokeLinecap="round" />
-          <path d="M0 220 C 80 180, 160 260, 240 200 S 380 120, 400 140" stroke="#0B5FFF" strokeWidth="3" fill="none" strokeDasharray="6 8" strokeLinecap="round" />
-          <path d="M20 40 L 380 60" stroke="#EEF1F6" strokeWidth="10" fill="none" strokeLinecap="round" />
-          <path d="M100 0 L 130 300" stroke="#EEF1F6" strokeWidth="10" fill="none" strokeLinecap="round" />
-        </svg>
-      </div>
-      <div className="absolute left-6 top-40">
-        <div className="relative">
-          <div className="absolute inset-0 -m-2 animate-pulse-ring rounded-full" />
-          <div className="h-4 w-4 rounded-full border-4 border-primary bg-background" />
-        </div>
-        <div className="mt-1.5 rounded-lg bg-background px-2 py-0.5 text-[10px] font-semibold shadow-soft">Pickup</div>
-      </div>
-      <div className="absolute right-8 top-20">
-        <div className="h-4 w-4 rounded-sm border-4 border-secondary bg-background" />
-        <div className="mt-1.5 rounded-lg bg-background px-2 py-0.5 text-[10px] font-semibold shadow-soft">Drop</div>
-      </div>
-      <div className="absolute bottom-3 right-3 rounded-full bg-background/90 px-3 py-1 text-[11px] font-medium shadow-soft backdrop-blur">
-        Live map preview
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------ Step 2 · Trip Type ------------------------ */
-
-function StepTripType({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
-  const types: { id: TripType; title: string; desc: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: "one-way", title: "One Side Trip", desc: "Travel from one location to another.", icon: MapPin },
-    { id: "round", title: "Round Trip", desc: "Travel and return the same day.", icon: RouteIcon },
-    { id: "outstation", title: "Outstation", desc: "Long distance intercity travel.", icon: Car },
-    { id: "rental", title: "Daily Rental", desc: "Hire a driver for multiple hours.", icon: Clock },
-  ];
-  return (
-    <div className="animate-rise">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {types.map((t) => {
-          const active = s.tripType === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => set("tripType", t.id)}
-              className={`group flex items-start gap-4 rounded-3xl border-2 p-5 text-left transition ${active ? "border-primary bg-primary/5 shadow-ring" : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-soft"}`}
-            >
-              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl ${active ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
-                <t.icon className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold">{t.title}</h3>
-                  {active && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">{t.desc}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      <NavRow onNext={onNext} onBack={onBack} />
-    </div>
-  );
-}
-
-/* ------------------------ Step 3 · Vehicle ------------------------ */
-
-const VEHICLES: { id: Vehicle; name: string; seats: number; luggage: number; ac: boolean; auto: boolean; rate: number }[] = [
-  { id: "hatchback", name: "Hatchback", seats: 4, luggage: 2, ac: true, auto: true, rate: 9 },
-  { id: "sedan", name: "Sedan", seats: 4, luggage: 3, ac: true, auto: true, rate: 12 },
-  { id: "suv", name: "SUV", seats: 6, luggage: 4, ac: true, auto: true, rate: 16 },
-  { id: "luxury", name: "Luxury", seats: 4, luggage: 3, ac: true, auto: true, rate: 28 },
-  { id: "ev", name: "Electric", seats: 4, luggage: 2, ac: true, auto: true, rate: 11 },
-];
-
-function StepVehicle({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
-  return (
-    <div className="animate-rise space-y-6">
-      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-6">
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Transmission</div>
-            <div className="mt-3 flex gap-2">
-              {(["automatic", "manual"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => set("transmission", t)}
-                  className={`flex-1 rounded-2xl border-2 px-4 py-3 text-sm font-semibold capitalize transition ${s.transmission === t ? "border-primary bg-primary text-primary-foreground shadow-soft" : "border-border bg-subtle hover:border-primary/50"}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Booking time</div>
-            <div className="mt-3 flex gap-2">
-              {(["now", "later"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => set("timing", t)}
-                  className={`flex-1 rounded-2xl border-2 px-4 py-3 text-sm font-semibold capitalize transition ${s.timing === t ? "border-primary bg-primary text-primary-foreground shadow-soft" : "border-border bg-subtle hover:border-primary/50"}`}
-                >
-                  {t === "now" ? "Now" : "Schedule Later"}
-                </button>
-              ))}
-            </div>
-            {s.timing === "later" && (
-              <div className="mt-4 grid grid-cols-2 gap-3 animate-fade-in">
-                <div className="rounded-2xl border border-border bg-background px-3.5 py-2.5">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"><Calendar className="h-3 w-3" /> Date</div>
-                  <input type="date" value={s.date} onChange={(e) => set("date", e.target.value)} className="mt-1 w-full bg-transparent text-sm outline-none" />
-                </div>
-                <div className="rounded-2xl border border-border bg-background px-3.5 py-2.5">
-                  <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"><Clock className="h-3 w-3" /> Time</div>
-                  <input type="time" value={s.time} onChange={(e) => set("time", e.target.value)} className="mt-1 w-full bg-transparent text-sm outline-none" />
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="pt-2">
+          <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Special Instructions (Optional)</label>
+          <textarea
+            rows={3}
+            value={s.specialInstructions}
+            onChange={(e) => set("specialInstructions", e.target.value)}
+            placeholder="e.g. Car model Honda City, child seat needed, or specific parking instructions..."
+            className="mt-2 w-full rounded-2xl border border-border bg-background p-4 text-sm outline-none focus:border-primary placeholder:text-muted-foreground"
+          />
         </div>
       </div>
 
-      <NavRow onNext={onNext} onBack={onBack} />
-    </div>
-  );
-}
-
-function Chip({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  return <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 font-medium text-muted-foreground">{icon}{children}</span>;
-}
-
-/* ------------------------ Step 4 · Pricing ------------------------ */
-
-function StepPricing({ s, onNext, onBack }: { s: State; onNext: () => void; onBack: () => void }) {
-  const fare = s.tripMetrics?.fare ?? null;
-
-  return (
-    <div className="animate-rise grid gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold">Trip estimate</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Calculated from live driving distance & duration for your ride.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border-2 border-border bg-background p-4">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Distance</div>
-              <div className="mt-1 text-2xl font-semibold tracking-tight">{s.tripMetrics ? `${s.tripMetrics.distanceKm} km` : "—"}</div>
-            </div>
-            <div className="rounded-2xl border-2 border-border bg-background p-4">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Travel Time</div>
-              <div className="mt-1 text-2xl font-semibold tracking-tight">{s.tripMetrics ? s.tripMetrics.durationText : "—"}</div>
-            </div>
-            <div className="rounded-2xl border-2 border-border bg-background p-4">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">ETA</div>
-              <div className="mt-1 text-2xl font-semibold tracking-tight">{s.tripMetrics ? s.tripMetrics.etaLabel : "—"}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative flex w-full items-center gap-5 rounded-3xl border-2 border-primary bg-primary/5 p-5 text-left shadow-ring">
-          <span className="absolute right-4 top-4 rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-ink">Upfront pricing</span>
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground">
-            <Zap className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-base font-semibold">Base + Distance + Time pricing</h4>
-            <p className="mt-1 text-sm text-muted-foreground">
-              ₹{PRICING.baseFare} base fare + ₹{fare?.ratePerKm ?? PRICING.ratePerKm}/km + ₹{fare?.ratePerHour ?? PRICING.ratePerHour}/hr.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <aside className="rounded-3xl border border-border bg-subtle p-6">
-        <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">Fare breakdown</h4>
-        <dl className="mt-4 space-y-2.5 text-sm">
-          <Row k="Base Fare" v={fare ? formatCurrency(fare.baseFare) : `₹${PRICING.baseFare}`} />
-          <Row k={`Distance Charge (${fare?.distanceKm ?? 0} km × ₹${fare?.ratePerKm ?? PRICING.ratePerKm})`} v={fare ? formatCurrency(fare.distanceCharge) : "—"} />
-          <Row k={`Time Charge (${fare ? (fare.durationMinutes / 60).toFixed(1) : "0"} hrs × ₹${fare?.ratePerHour ?? PRICING.ratePerHour})`} v={fare ? formatCurrency(fare.timeCharge) : "—"} />
-        </dl>
-        <div className="mt-5 flex items-baseline justify-between border-t border-border pt-4">
-          <span className="text-sm font-medium">Total Fare</span>
-          <span className="text-3xl font-semibold tracking-tight text-primary">{fare ? formatCurrency(fare.totalFare) : "—"}</span>
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Final fare shown before payment. No hidden charges.</p>
-        <button onClick={onNext} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110">
-          Continue <ArrowRight className="h-4 w-4" />
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
+          <ArrowLeft className="h-4 w-4" /> Back
         </button>
-        <button onClick={onBack} className="mt-2 w-full rounded-2xl py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground">Back</button>
-      </aside>
+        <button
+          onClick={onNext}
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+        >
+          Review Fare & Pay <ArrowRight className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return <div className="flex items-center justify-between"><dt className="text-muted-foreground">{k}</dt><dd className="font-medium">{v}</dd></div>;
 }
 
 /* ------------------------ Step 5 · Payment ------------------------ */
@@ -381,9 +388,9 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   const beforeOptions = ["UPI", "Credit Card", "Debit Card", "Net Banking", "Wallet"];
   const afterOptions = ["Cash", "UPI"];
   const active = s.payMode === "before" ? beforeOptions : afterOptions;
-  
-  useEffect(() => { 
-    if (!active.includes(s.payMethod)) set("payMethod", active[0]); 
+
+  useEffect(() => {
+    if (!active.includes(s.payMethod)) set("payMethod", active[0]);
   }, [s.payMode]);
 
   const [termsAgreed, setTermsAgreed] = useState(false);
@@ -393,7 +400,10 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   const [txnDetails, setTxnDetails] = useState<{ txnId: string; bookingId: string; amount: string; method: string; dateStr: string } | null>(null);
 
   const fare = s.tripMetrics?.fare;
-  const totalAmountStr = fare ? formatCurrency(fare.totalFare) : s.tripMetrics ? `₹${Math.round(s.tripMetrics.distanceKm * 13 + 299)}` : "₹797";
+  const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Hourly Chauffeur"];
+  const durationHours = DURATION_HOURS[s.duration] || 4;
+  const estimatedPrice = fare ? fare.totalFare : serviceDetails.baseFare + durationHours * serviceDetails.ratePerHour;
+  const totalAmountStr = formatCurrency(estimatedPrice);
   const canPay = termsAgreed && policyAgreed;
 
   const handleProceedToPay = () => {
@@ -403,10 +413,7 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
     setTimeout(() => {
       const randomTxn = "TXN" + Math.floor(100000000 + Math.random() * 900000000);
       const randomBooking = "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000));
-      const nowStr = new Date().toLocaleString("en-US", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
+      const nowStr = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
 
       setTxnDetails({
         txnId: randomTxn,
@@ -465,10 +472,6 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
                 </button>
               ))}
             </div>
-            <div className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5">
-              <span>Selected Method:</span>
-              <span className="font-semibold text-foreground bg-subtle px-2 py-0.5 rounded-lg border border-border">{s.payMethod}</span>
-            </div>
           </div>
         </div>
       </div>
@@ -476,34 +479,36 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
       <aside className="rounded-3xl border border-border bg-primary p-6 text-primary-foreground shadow-lift lg:col-span-2 flex flex-col justify-between space-y-5">
         <div>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/80">Amount payable</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/80">Estimated Price</span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur">
               <Lock className="h-3 w-3 text-emerald-300" /> Secure Checkout
             </span>
           </div>
 
           <div className="mt-2 text-4xl font-bold tracking-tight">{totalAmountStr}</div>
-          
-          {/* Fare Breakdown Section */}
+
+          {/* Fare Breakdown */}
           <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-2 text-primary-foreground/90 border border-white/10">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/70 border-b border-white/10 pb-1.5 flex justify-between">
-              <span>Fare Breakdown</span>
+              <span>Chauffeur Fare Breakdown</span>
               <span>Amount</span>
             </div>
             <div className="flex justify-between">
-              <span>Base Fare</span>
-              <span>{fare ? formatCurrency(fare.baseFare) : "₹299"}</span>
+              <span>Base Service Fee ({s.serviceType})</span>
+              <span>₹{serviceDetails.baseFare}</span>
             </div>
             <div className="flex justify-between">
-              <span>Distance Charge ({fare ? fare.distanceKm : s.tripMetrics ? s.tripMetrics.distanceKm : "31.1"} km)</span>
-              <span>{fare ? formatCurrency(fare.distanceCharge) : "₹404"}</span>
+              <span>Duration Charge ({s.duration})</span>
+              <span>₹{durationHours * serviceDetails.ratePerHour}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Time Charge ({fare ? (fare.durationMinutes / 60).toFixed(1) : "0.8"} hrs)</span>
-              <span>{fare ? formatCurrency(fare.timeCharge) : "₹94"}</span>
-            </div>
+            {fare && fare.distanceKm > 0 && (
+              <div className="flex justify-between">
+                <span>Distance Charge ({fare.distanceKm} km)</span>
+                <span>₹{fare.distanceCharge}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t border-white/15 pt-2 text-sm font-bold text-white">
-              <span>Total Amount</span>
+              <span>Total Estimated Price</span>
               <span>{totalAmountStr}</span>
             </div>
           </div>
@@ -519,13 +524,7 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
             </ul>
           </div>
 
-          {/* Security Note */}
-          <div className="mt-4 rounded-xl bg-black/20 p-2.5 text-[11px] text-center font-medium text-primary-foreground/80 flex items-center justify-center gap-1.5">
-            <Lock className="h-3.5 w-3.5 text-emerald-300 shrink-0" />
-            <span>🔒 Secure & Encrypted Checkout (Demo Payment)</span>
-          </div>
-
-          {/* Agreement Checkboxes */}
+          {/* Checkboxes */}
           <div className="mt-4 space-y-2 text-xs">
             <label className="flex items-start gap-2 cursor-pointer select-none">
               <input
@@ -554,19 +553,17 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
             onClick={handleProceedToPay}
             disabled={!canPay || processing}
             className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-lift transition ${
-              canPay && !processing
-                ? "bg-white text-primary hover:brightness-105"
-                : "bg-white/30 text-white/60 cursor-not-allowed"
+              canPay && !processing ? "bg-white text-primary hover:brightness-105" : "bg-white/30 text-white/60 cursor-not-allowed"
             }`}
           >
             {processing ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Processing Payment...</span>
+                <span>Assigning Driver & Processing...</span>
               </>
             ) : (
               <>
-                Proceed to Pay ({s.payMethod}) <ArrowRight className="h-4 w-4" />
+                Book Driver ({s.payMethod}) <ArrowRight className="h-4 w-4" />
               </>
             )}
           </button>
@@ -592,10 +589,10 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
 
             <div>
               <span className="inline-block rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 mb-1">
-                ✅ Payment Successful
+                ✅ Chauffeur Assigned
               </span>
-              <h3 className="text-xl font-bold tracking-tight text-foreground">Ride Confirmed!</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Your chauffeur has been booked successfully.</p>
+              <h3 className="text-xl font-bold tracking-tight text-foreground">Driver Booked Successfully!</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Your professional chauffeur has been assigned for your vehicle.</p>
             </div>
 
             <div className="rounded-2xl border border-border bg-subtle p-4 text-xs space-y-2.5 text-left">
@@ -603,31 +600,22 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
                 <span className="text-muted-foreground font-medium">Transaction ID</span>
                 <span className="font-mono font-bold text-foreground">{txnDetails.txnId}</span>
               </div>
-
               <div className="flex justify-between items-center border-b border-border/60 pb-2">
                 <span className="text-muted-foreground font-medium">Booking ID</span>
                 <span className="font-mono font-bold text-primary">{txnDetails.bookingId}</span>
               </div>
-
               <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Amount Paid</span>
+                <span className="text-muted-foreground font-medium">Estimated Price</span>
                 <span className="font-bold text-emerald-600 text-sm">{txnDetails.amount}</span>
               </div>
-
               <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Payment Method</span>
-                <span className="font-semibold text-foreground">{txnDetails.method}</span>
+                <span className="text-muted-foreground font-medium">Service Type</span>
+                <span className="font-semibold text-foreground">{s.serviceType}</span>
               </div>
-
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Date & Time</span>
-                <span className="font-medium text-foreground">{txnDetails.dateStr}</span>
-              </div>
-
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground font-medium">Status</span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> Paid
+                  <CheckCircle2 className="h-3 w-3" /> Driver Assigned
                 </span>
               </div>
             </div>
@@ -656,19 +644,18 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
 }
 
 function SummaryCard({ s }: { s: State }) {
-  const tt = ({ "one-way": "One Side", round: "Round Trip", outstation: "Outstation", rental: "Daily Rental" } as Record<TripType, string>)[s.tripType];
   return (
     <div className="rounded-3xl border border-border bg-background p-6 shadow-soft">
-      <h3 className="text-lg font-semibold">Trip summary</h3>
+      <h3 className="text-lg font-semibold">Chauffeur Booking Summary</h3>
       <div className="mt-4 space-y-3 text-sm">
+        <SummaryRow k="Service" v={s.serviceType} dot="primary" />
         <SummaryRow k="Pickup" v={s.pickup || "Not selected"} dot="primary" />
-        <SummaryRow k="Drop" v={s.drop || "Not selected"} dot="secondary" />
-        <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-5">
+        <SummaryRow k="Destination" v={s.drop || "Optional (As per direction)"} dot="secondary" />
+        <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
           <Meta k="Transmission" v={s.transmission} />
-          <Meta k="Trip Type" v={tt} />
-          <Meta k="Schedule" v={s.timing === "now" ? "Now" : `${s.date} · ${s.time}`} />
+          <Meta k="Duration" v={s.duration} />
+          <Meta k="Schedule" v={s.timing === "now" ? "Immediate Pickup" : `${s.date} · ${s.time}`} />
           <Meta k="Distance" v={s.tripMetrics ? `${s.tripMetrics.distanceKm} km` : "—"} />
-          <Meta k="Duration" v={s.tripMetrics ? s.tripMetrics.durationText : "—"} />
         </div>
       </div>
     </div>
@@ -686,6 +673,7 @@ function SummaryRow({ k, v, dot }: { k: string; v: string; dot: "primary" | "sec
     </div>
   );
 }
+
 function Meta({ k, v }: { k: string; v: string }) {
   return (
     <div className="rounded-2xl bg-subtle p-3">
@@ -698,31 +686,36 @@ function Meta({ k, v }: { k: string; v: string }) {
 /* ------------------------ Step 6 · Confirmation ------------------------ */
 
 function StepConfirmation({ s }: { s: State }) {
-  const v = VEHICLES.find((x) => x.id === s.vehicle)!;
-  const [bookingId, setBookingId] = useState<string>(() => "DAL" + Math.floor(100000 + Math.random() * 900000));
-  const otp = useMemo(() => Math.floor(1000 + Math.random() * 9000).toString(), []);
+  const [bookingId, setBookingId] = useState<string>(
+    () => "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000))
+  );
 
-  // Persist the confirmed trip (route, fare breakdown, ETA) to MongoDB.
   useEffect(() => {
-    if (!s.tripMetrics || !s.pickupCoords || !s.dropCoords) return;
+    if (!s.pickupCoords) return;
     let cancelled = false;
     createBooking({
       data: {
-        pickup: { lat: s.pickupCoords.lat, lng: s.pickupCoords.lng, address: s.pickup },
-        drop: { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop },
-        vehicleType: s.vehicle,
-        distanceKm: s.tripMetrics.distanceKm,
-        durationMinutes: s.tripMetrics.durationMinutes,
-        durationInTrafficMinutes: s.tripMetrics.durationInTrafficMinutes ?? undefined,
-        etaTime: s.tripMetrics.etaTime ?? new Date().toISOString(),
-        routePolyline: s.tripMetrics.routePolyline ?? "",
-        fare: {
-          baseFare: s.tripMetrics.fare.baseFare,
-          ratePerKm: s.tripMetrics.fare.ratePerKm,
-          ratePerHour: s.tripMetrics.fare.ratePerHour,
-          distanceCharge: s.tripMetrics.fare.distanceCharge,
-          timeCharge: s.tripMetrics.fare.timeCharge,
-          totalFare: s.tripMetrics.fare.totalFare,
+        serviceType: s.serviceType,
+        pickup: { lat: s.pickupCoords.lat, lng: s.pickupCoords.lng, address: s.pickup || "Pickup Location" },
+        drop: s.dropCoords ? { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop } : undefined,
+        bookingDate: s.date,
+        bookingTime: s.time,
+        duration: s.duration,
+        transmission: s.transmission,
+        specialInstructions: s.specialInstructions,
+        distanceKm: s.tripMetrics?.distanceKm || 0,
+        durationMinutes: s.tripMetrics?.durationMinutes || 60,
+        durationInTrafficMinutes: s.tripMetrics?.durationInTrafficMinutes ?? undefined,
+        etaTime: s.tripMetrics?.etaTime ?? new Date().toISOString(),
+        routePolyline: s.tripMetrics?.routePolyline ?? "",
+        paymentMethod: s.payMethod,
+        fare: s.tripMetrics?.fare || {
+          baseFare: CHAUFFEUR_SERVICES[s.serviceType]?.baseFare || 299,
+          ratePerKm: 13,
+          ratePerHour: 120,
+          distanceCharge: 0,
+          timeCharge: 0,
+          totalFare: 797,
         },
       },
     })
@@ -733,7 +726,6 @@ function StepConfirmation({ s }: { s: State }) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -745,28 +737,31 @@ function StepConfirmation({ s }: { s: State }) {
             <CheckCircle2 className="h-10 w-10" strokeWidth={2.4} />
           </div>
         </div>
-        <h2 className="mt-6 text-3xl font-semibold tracking-tight">Booking confirmed</h2>
+        <h2 className="mt-6 text-3xl font-semibold tracking-tight">Chauffeur Driver Assigned</h2>
         <p className="mt-1 text-sm text-muted-foreground">Booking ID · <span className="font-semibold text-foreground">{bookingId}</span></p>
       </div>
 
       <div className="mt-8 grid gap-5 lg:grid-cols-5">
-        {/* Driver card */}
+        {/* Driver Details Card */}
         <div className="lg:col-span-2 rounded-3xl border border-border bg-background p-6 shadow-soft">
           <div className="flex items-center gap-4">
             <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-lg font-semibold text-primary">RK</div>
             <div className="flex-1">
               <h3 className="text-lg font-semibold">Rajesh Kumar</h3>
+              <p className="text-xs text-primary font-medium">Professional Chauffeur</p>
               <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Star className="h-3.5 w-3.5 fill-secondary text-secondary" /> 4.92 · 8 yrs experience
+                <Star className="h-3.5 w-3.5 fill-secondary text-secondary" /> 4.98 · 8+ yrs driving experience
               </div>
             </div>
           </div>
+
           <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <Meta k="Vehicle" v={`${v.name} · Swift Dzire`} />
-            <Meta k="Number" v="KA 05 MJ 4821" />
-            <Meta k="Phone" v="+91 98450 12345" />
-            <Meta k="Trip OTP" v={otp} />
+            <Meta k="Service Type" v={s.serviceType} />
+            <Meta k="Duration" v={s.duration} />
+            <Meta k="Driver Status" v="En Route to Pickup" />
+            <Meta k="Phone" v="+91 98765 43210" />
           </div>
+
           <div className="mt-5 grid grid-cols-4 gap-2">
             {[
               { i: Phone, l: "Call" },
@@ -781,71 +776,57 @@ function StepConfirmation({ s }: { s: State }) {
           </div>
         </div>
 
-        {/* Trip live map */}
-        <div className="lg:col-span-3 overflow-hidden rounded-3xl border border-border bg-subtle shadow-soft">
-          <div className="relative h-56 md:h-64">
-            <div className="absolute inset-0 grid-bg" />
-            <svg className="absolute inset-0 h-full w-full" viewBox="0 0 400 240" preserveAspectRatio="none">
-              <path d="M20 200 C 100 170, 180 210, 250 160 S 380 90, 390 60" stroke="#E5EAF2" strokeWidth="14" fill="none" strokeLinecap="round" />
-              <path d="M20 200 C 100 170, 180 210, 250 160 S 380 90, 390 60" stroke="#0B5FFF" strokeWidth="3" fill="none" strokeDasharray="6 8" strokeLinecap="round" />
-            </svg>
-            <div className="absolute left-4 bottom-8">
-              <div className="relative">
-                <div className="absolute inset-0 -m-2 animate-pulse-ring rounded-full" />
-                <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow-lift">
-                  <Car className="h-4 w-4" strokeWidth={2.4} />
-                </div>
+        {/* Live Trip Info */}
+        <div className="lg:col-span-3 overflow-hidden rounded-3xl border border-border bg-subtle shadow-soft flex flex-col justify-between">
+          <div className="p-6 space-y-4">
+            <h3 className="text-lg font-semibold border-b border-border pb-3">Booking Confirmation Details</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-xs text-muted-foreground">Pickup Address</span>
+                <p className="font-medium text-foreground">{s.pickup || "Pickup Location"}</p>
               </div>
-              <div className="mt-1 rounded-lg bg-background px-2 py-0.5 text-[10px] font-semibold shadow-soft">Driver</div>
-            </div>
-            <div className="absolute right-6 top-6">
-              <div className="h-4 w-4 rounded-sm border-4 border-secondary bg-background" />
-              <div className="mt-1 rounded-lg bg-background px-2 py-0.5 text-[10px] font-semibold shadow-soft">Drop</div>
-            </div>
-            <div className="absolute right-4 bottom-4 rounded-full bg-background/95 px-3 py-1.5 text-[11px] font-semibold shadow-soft">
-              ETA · {s.tripMetrics?.etaLabel ?? "—"}
+              <div>
+                <span className="text-xs text-muted-foreground">Destination</span>
+                <p className="font-medium text-foreground">{s.drop || "Flexible / Hourly Route"}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Booking Date & Time</span>
+                <p className="font-medium text-foreground">{s.timing === "now" ? "Immediate" : `${s.date} at ${s.time}`}</p>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground">Transmission</span>
+                <p className="font-medium text-foreground capitalize">{s.transmission} Transmission</p>
+              </div>
             </div>
           </div>
+
           <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background text-center text-sm">
             <div className="p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Distance</div>
-              <div className="mt-1 font-semibold">{s.tripMetrics ? `${s.tripMetrics.distanceKm} km` : "—"}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Service</div>
+              <div className="mt-1 font-semibold truncate">{s.serviceType}</div>
             </div>
             <div className="p-4">
               <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</div>
-              <div className="mt-1 font-semibold">{s.tripMetrics?.durationText ?? "—"}</div>
+              <div className="mt-1 font-semibold">{s.duration}</div>
             </div>
             <div className="p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fare</div>
-              <div className="mt-1 font-semibold text-primary">{s.tripMetrics ? formatCurrency(s.tripMetrics.fare.totalFare) : "—"}</div>
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Estimated Fare</div>
+              <div className="mt-1 font-semibold text-primary">
+                {s.tripMetrics ? formatCurrency(s.tripMetrics.fare.totalFare) : "₹797"}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <button className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">
-          <Navigation className="h-4 w-4" /> Track Driver
-        </button>
+        <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">
+          <Navigation className="h-4 w-4" /> Go to Customer Dashboard
+        </Link>
         <Link to="/" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
           <Home className="h-4 w-4" /> Back Home
         </Link>
       </div>
-    </div>
-  );
-}
-
-/* ------------------------ shared nav ------------------------ */
-
-function NavRow({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  return (
-    <div className="mt-8 flex items-center justify-between">
-      <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
-      <button onClick={onNext} className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110">
-        Continue <ArrowRight className="h-4 w-4" />
-      </button>
     </div>
   );
 }

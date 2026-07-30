@@ -1,15 +1,11 @@
 /**
- * Driv-A-Long fare calculation engine.
+ * Driv-A-Long Professional Chauffeur Rental Fare Calculation Engine.
  *
- * Pricing model (as specified):
- *   Base Fare        = ₹299
- *   Distance Charge  = Distance (km)   × ₹13 per km
- *   Time Charge      = Duration (hrs)  × ₹120 per hour
- *   Total Fare       = Base Fare + Distance Charge + Time Charge
- *
- * This file is isomorphic (no DOM / Node-only APIs) so it can be safely
- * imported from both the browser (React components) and the server
- * (TanStack Start server functions).
+ * Chauffeur Services pricing model:
+ *   Base Fare        = Service Base Fare (₹299 - ₹1,499)
+ *   Duration Charge  = Service Duration Hours × Rate per hour
+ *   Distance Charge  = Optional Distance (km) × Rate per km
+ *   Total Fare       = Base Fare + Duration Charge + Distance Charge
  */
 
 export const PRICING = {
@@ -18,20 +14,101 @@ export const PRICING = {
   ratePerHour: 120,
 } as const;
 
-export type VehicleType = "hatchback" | "sedan" | "suv" | "luxury" | "ev";
+export type ServiceType =
+  | "One-Way Chauffeur"
+  | "Hourly Chauffeur"
+  | "Full-Day Chauffeur"
+  | "Airport Chauffeur"
+  | "Designated Driver"
+  | "Corporate Chauffeur"
+  | "Event Chauffeur"
+  | "Outstation Chauffeur";
 
-/**
- * Vehicle class multipliers. The base pricing formula above applies exactly
- * to the standard "sedan" class. Other vehicle classes scale the distance
- * and time components so the booking flow can keep its existing vehicle
- * picker while still honouring the ₹299 + ₹13/km + ₹120/hr formula.
- */
-export const VEHICLE_MULTIPLIERS: Record<VehicleType, { name: string; multiplier: number }> = {
-  hatchback: { name: "Hatchback", multiplier: 0.85 },
-  sedan: { name: "Sedan", multiplier: 1 },
-  suv: { name: "SUV", multiplier: 1.3 },
-  luxury: { name: "Luxury", multiplier: 1.85 },
-  ev: { name: "Electric (EV)", multiplier: 0.95 },
+export type DurationOption =
+  | "1 Hour"
+  | "2 Hours"
+  | "4 Hours"
+  | "6 Hours"
+  | "8 Hours"
+  | "12 Hours"
+  | "Full Day";
+
+export const DURATION_HOURS: Record<DurationOption, number> = {
+  "1 Hour": 1,
+  "2 Hours": 2,
+  "4 Hours": 4,
+  "6 Hours": 6,
+  "8 Hours": 8,
+  "12 Hours": 12,
+  "Full Day": 24,
+};
+
+export const CHAUFFEUR_SERVICES: Record<
+  ServiceType,
+  {
+    title: string;
+    description: string;
+    baseFare: number;
+    ratePerHour: number;
+    ratePerKm: number;
+  }
+> = {
+  "One-Way Chauffeur": {
+    title: "One-Way Chauffeur",
+    description: "Hire a professional driver for a single point-to-point trip in your car.",
+    baseFare: 299,
+    ratePerHour: 120,
+    ratePerKm: 13,
+  },
+  "Hourly Chauffeur": {
+    title: "Hourly Chauffeur",
+    description: "Flexible hourly chauffeur rental for shopping, errands, or multiple stops.",
+    baseFare: 349,
+    ratePerHour: 140,
+    ratePerKm: 0,
+  },
+  "Full-Day Chauffeur": {
+    title: "Full-Day Chauffeur",
+    description: "Dedicated chauffeur for your vehicle for the entire day (up to 8 hrs included).",
+    baseFare: 1499,
+    ratePerHour: 100,
+    ratePerKm: 0,
+  },
+  "Airport Chauffeur": {
+    title: "Airport Chauffeur",
+    description: "Reliable airport pickup or drop-off service in the comfort of your own car.",
+    baseFare: 499,
+    ratePerHour: 120,
+    ratePerKm: 13,
+  },
+  "Designated Driver": {
+    title: "Designated Driver",
+    description: "Safe drive home service after parties, events, or nightlife in your car.",
+    baseFare: 399,
+    ratePerHour: 130,
+    ratePerKm: 10,
+  },
+  "Corporate Chauffeur": {
+    title: "Corporate Chauffeur",
+    description: "Executive chauffeurs for business meetings, VIP guests, and corporate mobility.",
+    baseFare: 799,
+    ratePerHour: 150,
+    ratePerKm: 12,
+  },
+  "Event Chauffeur": {
+    title: "Event Chauffeur",
+    description: "Chauffeur service tailored for weddings, family functions, and special events.",
+    baseFare: 699,
+    ratePerHour: 150,
+    ratePerKm: 0,
+  },
+  "Outstation Chauffeur": {
+    title: "Outstation Chauffeur",
+    description: "Experienced highway driver for long-distance intercity road trips.",
+    baseFare: 999,
+    ratePerHour: 120,
+    ratePerKm: 14,
+  },
 };
 
 export interface FareBreakdown {
@@ -43,45 +120,41 @@ export interface FareBreakdown {
   distanceCharge: number;
   timeCharge: number;
   totalFare: number;
-  vehicleType: VehicleType;
-  vehicleMultiplier: number;
 }
 
 /**
- * Calculates the fare using the Driv-A-Long pricing formula:
- *   Total Fare = ₹299 + (Distance × ₹13) + (Duration in hours × ₹120)
+ * Calculates the fare for Chauffeur Services.
  */
 export function calculateFare(
-  distanceKm: number,
-  durationMinutes: number,
-  vehicleType: VehicleType = "sedan"
+  distanceKm: number = 0,
+  durationMinutes: number = 60,
+  serviceType: ServiceType = "Hourly Chauffeur"
 ): FareBreakdown {
-  const vehicle = VEHICLE_MULTIPLIERS[vehicleType] || VEHICLE_MULTIPLIERS.sedan;
+  const service = CHAUFFEUR_SERVICES[serviceType] || CHAUFFEUR_SERVICES["Hourly Chauffeur"];
   const safeDistance = Math.max(0, distanceKm || 0);
-  const safeDuration = Math.max(0, durationMinutes || 0);
+  const safeDuration = Math.max(0, durationMinutes || 60);
 
-  const effectiveRatePerKm = Math.round(PRICING.ratePerKm * vehicle.multiplier * 100) / 100;
-  const effectiveRatePerHour = Math.round(PRICING.ratePerHour * vehicle.multiplier * 100) / 100;
+  const baseFare = service.baseFare;
+  const ratePerKm = service.ratePerKm;
+  const ratePerHour = service.ratePerHour;
 
-  const distanceCharge = Math.round(safeDistance * effectiveRatePerKm);
-  const timeCharge = Math.round((safeDuration / 60) * effectiveRatePerHour);
-  const totalFare = Math.round(PRICING.baseFare + distanceCharge + timeCharge);
+  const distanceCharge = Math.round(safeDistance * ratePerKm);
+  const timeCharge = Math.round((safeDuration / 60) * ratePerHour);
+  const totalFare = Math.round(baseFare + distanceCharge + timeCharge);
 
   return {
-    baseFare: PRICING.baseFare,
+    baseFare,
     distanceKm: Math.round(safeDistance * 10) / 10,
     durationMinutes: Math.round(safeDuration),
-    ratePerKm: effectiveRatePerKm,
-    ratePerHour: effectiveRatePerHour,
+    ratePerKm,
+    ratePerHour,
     distanceCharge,
     timeCharge,
     totalFare,
-    vehicleType,
-    vehicleMultiplier: vehicle.multiplier,
   };
 }
 
-/** Formats a number of minutes as a friendly "Xh Ym" / "Xm" string. */
+/** Formats duration in minutes to a human-readable label */
 export function formatDuration(minutes: number): string {
   const total = Math.max(0, Math.round(minutes || 0));
   const h = Math.floor(total / 60);
@@ -91,28 +164,24 @@ export function formatDuration(minutes: number): string {
   return `${h} hr ${m} min`;
 }
 
-/** Formats a Date (or ISO string) as a local "hh:mm AM/PM" ETA label. */
+/** Formats ETA timestamp */
 export function formatEta(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-/** Computes the estimated arrival Date given a duration in minutes from now. */
+/** Computes ETA Date */
 export function computeEtaDate(durationMinutes: number, from: Date = new Date()): Date {
   return new Date(from.getTime() + Math.max(0, durationMinutes || 0) * 60_000);
 }
 
-/** Formats a rupee amount with the ₹ symbol and thousands separators. */
+/** Formats currency amount */
 export function formatCurrency(amount: number): string {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
-/**
- * Haversine formula to compute direct (as-the-crow-flies) distance between
- * two lat/lng coordinates in km, inflated by a road-winding factor. Used
- * only as an offline fallback when the Directions API is unreachable.
- */
+/** Haversine offline distance computation */
 export function computeHaversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -121,5 +190,5 @@ export function computeHaversineDistance(lat1: number, lng1: number, lat2: numbe
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 1.3 * 10) / 10; // 1.3 road-winding factor
+  return Math.round(R * c * 1.3 * 10) / 10;
 }

@@ -3,8 +3,14 @@ import { useJsApiLoader, Libraries } from "@react-google-maps/api";
 import { LocationSearch } from "./LocationSearch";
 import { RouteMap } from "./RouteMap";
 import { BookingSummary } from "./BookingSummary";
-import { computeHaversineDistance, calculateFare, type FareBreakdown, type VehicleType } from "./fareUtils";
+import { computeHaversineDistance, calculateFare, DURATION_HOURS, type FareBreakdown, type ServiceType, type DurationOption } from "./fareUtils";
 import { getTripEstimate } from "@/lib/api/trip.functions";
+
+declare global {
+  interface Window {
+    gm_authFailure?: () => void;
+  }
+}
 
 interface Coords {
   lat: number;
@@ -24,7 +30,9 @@ export interface TripMetrics {
 
 interface GoogleMapComponentProps {
   pickup: string;
-  drop: string;
+  drop?: string;
+  serviceType?: string;
+  duration?: string;
   vehicleType?: string;
   onPickupChange: (val: string, coords?: Coords, verified?: boolean) => void;
   onDropChange: (val: string, coords?: Coords, verified?: boolean) => void;
@@ -36,8 +44,9 @@ const libraries: Libraries = ["places", "geometry"];
 
 export function GoogleMapComponent({
   pickup,
-  drop,
-  vehicleType = "sedan",
+  drop = "",
+  serviceType = "Hourly Chauffeur",
+  duration = "4 Hours",
   onPickupChange,
   onDropChange,
   onMetricsCalculated,
@@ -54,7 +63,7 @@ export function GoogleMapComponent({
     libraries,
   });
 
-  // Catch global Google Maps auth failures (e.g., ApiNotActivatedMapError / BillingNotEnabledMapError)
+  // Catch global Google Maps auth failures
   useEffect(() => {
     window.gm_authFailure = () => {
       console.warn("Google Maps authentication failed (gm_authFailure). Falling back to interactive map view.");
@@ -207,14 +216,9 @@ export function GoogleMapComponent({
     return () => clearTimeout(timer);
   }, [drop, dropVerified, isLoaded, onDropChange]);
 
-  // Fetch an authoritative trip estimate (route + fare) from the backend
-  // whenever both pickup and drop have been selected from Google's
-  // suggestions and have resolved coordinates. Debounced + sequence-guarded
-  // so a fast edit can't let a stale response overwrite a newer one.
+  // Fetch trip estimate (route + fare) from backend
   useEffect(() => {
-    if (!pickupCoords || !dropCoords || !pickupVerified || !dropVerified) {
-      return;
-    }
+    if (!pickupCoords || !pickupVerified) return;
 
     const seq = ++requestSeq.current;
     setEstimating(true);
@@ -225,12 +229,13 @@ export function GoogleMapComponent({
         const res = await getTripEstimate({
           data: {
             pickup: { lat: pickupCoords.lat, lng: pickupCoords.lng, address: pickup },
-            drop: { lat: dropCoords.lat, lng: dropCoords.lng, address: drop },
-            vehicleType: vehicleType as VehicleType,
+            drop: dropCoords && dropVerified ? { lat: dropCoords.lat, lng: dropCoords.lng, address: drop } : undefined,
+            serviceType: serviceType as ServiceType,
+            duration,
           },
         });
 
-        if (seq !== requestSeq.current) return; // stale response
+        if (seq !== requestSeq.current) return;
 
         if (res.success) {
           setDistanceKm(res.distanceKm);
@@ -252,7 +257,7 @@ export function GoogleMapComponent({
             onMetricsCalculated({
               distanceKm: res.distanceKm,
               durationMinutes: res.effectiveDurationMinutes,
-              durationInTrafficMinutes: res.durationInTrafficMinutes,
+              durationInTrafficMinutes: res.durationInTrafficMinutes ?? null,
               durationText:
                 res.durationInTrafficMinutes ? `${res.durationInTrafficMinutes} min (live traffic)` : `${res.durationMinutes} min`,
               etaLabel: new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
@@ -276,24 +281,21 @@ export function GoogleMapComponent({
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [pickupCoords, dropCoords, pickupVerified, dropVerified, vehicleType, pickup, drop, onMetricsCalculated]);
+  }, [pickupCoords, dropCoords, pickupVerified, dropVerified, serviceType, duration, pickup, drop, onMetricsCalculated]);
 
-  // Offline fallback: Haversine-based distance + simple duration estimate,
-  // used only when the backend Directions call above has failed or when
-  // coordinates aren't both verified yet but are available.
+  // Offline / Immediate calculation fallback
   useEffect(() => {
     if (routePolyline || estimating) return;
-    if (!pickupCoords || !dropCoords) return;
-    if (fare && distanceKm > 0) return; // backend estimate already succeeded
+    if (!pickupCoords) return;
 
-    const dist = computeHaversineDistance(pickupCoords.lat, pickupCoords.lng, dropCoords.lat, dropCoords.lng);
-    const estMinutes = Math.round(dist * 1.5 + 5);
-    const fallbackFare = calculateFare(dist, estMinutes, vehicleType as VehicleType);
+    const dist = pickupCoords && dropCoords ? computeHaversineDistance(pickupCoords.lat, pickupCoords.lng, dropCoords.lat, dropCoords.lng) : 0;
+    const estMinutes = (DURATION_HOURS[duration as DurationOption] || 4) * 60;
+    const fallbackFare = calculateFare(dist, estMinutes, serviceType as ServiceType);
     const eta = new Date(Date.now() + estMinutes * 60_000);
 
     setDistanceKm(dist);
     setDurationMinutes(estMinutes);
-    setDurationText(`${estMinutes} min (approx.)`);
+    setDurationText(`${duration}`);
     setEtaTime(eta.toISOString());
     setEtaLabel(eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
     setFare(fallbackFare);
@@ -303,7 +305,7 @@ export function GoogleMapComponent({
         distanceKm: dist,
         durationMinutes: estMinutes,
         durationInTrafficMinutes: null,
-        durationText: `${estMinutes} min (approx.)`,
+        durationText: `${duration}`,
         etaLabel: eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
         etaTime: eta.toISOString(),
         routePolyline: null,
@@ -311,16 +313,13 @@ export function GoogleMapComponent({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupCoords, dropCoords, routePolyline, estimating]);
+  }, [pickupCoords, dropCoords, routePolyline, estimating, serviceType, duration]);
 
   const handleClientRouteCalculated = useCallback(
     (dist: number, durMin: number, timeStr: string) => {
       setDistanceKm(dist);
       setDurationMinutes(durMin);
       setDurationText(timeStr);
-      const eta = new Date(Date.now() + durMin * 60_000);
-      setEtaTime(eta.toISOString());
-      setEtaLabel(eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
       setEstimating(false);
     },
     []
@@ -328,9 +327,10 @@ export function GoogleMapComponent({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      <div className="grid gap-6 md:grid-cols-2 md:items-start">
-        {/* Left Column: Location Inputs & Summary Card */}
-        <div className="space-y-6">
+      {/* Top 2-Column Desktop Grid Layout */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+        {/* Left Column: Location Search & Ride Metrics */}
+        <div className="space-y-5">
           <LocationSearch
             isLoaded={isLoaded && !loadError}
             pickup={pickup}
@@ -338,22 +338,14 @@ export function GoogleMapComponent({
             pickupVerified={pickupVerified}
             dropVerified={dropVerified}
             onPickupChange={(val, coords, verified) => {
-              onPickupChange(val, coords, verified);
-              if (coords) setPickupCoords(coords);
               setPickupVerified(Boolean(verified));
-              if (!coords) {
-                setRoutePolyline(null);
-                setFare(null);
-              }
+              if (coords) setPickupCoords(coords);
+              onPickupChange(val, coords, verified);
             }}
             onDropChange={(val, coords, verified) => {
-              onDropChange(val, coords, verified);
-              if (coords) setDropCoords(coords);
               setDropVerified(Boolean(verified));
-              if (!coords) {
-                setRoutePolyline(null);
-                setFare(null);
-              }
+              if (coords) setDropCoords(coords);
+              onDropChange(val, coords, verified);
             }}
             onUseCurrentLocation={detectUserLocation}
             locatingUser={locatingUser}
@@ -369,7 +361,7 @@ export function GoogleMapComponent({
             durationText={durationText}
             etaLabel={etaLabel}
             fare={fare}
-            vehicleType={vehicleType}
+            serviceType={serviceType}
             loading={estimating}
             ready={pickupVerified && dropVerified}
           />

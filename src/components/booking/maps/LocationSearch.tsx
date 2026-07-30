@@ -129,10 +129,10 @@ export function LocationSearch({
         </div>
       </div>
 
-      {/* Drop-off Input Field */}
+      {/* Destination Input Field (Optional) */}
       <div className="relative">
         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          <span>Drop-off Location</span>
+          <span>Destination <span className="text-[10px] lowercase font-normal text-muted-foreground">(optional for hourly/daily)</span></span>
         </div>
 
         <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring ${dropVerified ? "border-secondary/50" : "border-border"}`}>
@@ -147,7 +147,7 @@ export function LocationSearch({
                 type="text"
                 value={drop}
                 onChange={(e) => onDropChange(e.target.value, undefined, false)}
-                placeholder="Search drop-off address..."
+                placeholder="Search destination (optional for hourly/daily)..."
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </Autocomplete>
@@ -156,7 +156,7 @@ export function LocationSearch({
               type="text"
               value={drop}
               onChange={(e) => onDropChange(e.target.value, undefined, false)}
-              placeholder="Enter destination location..."
+              placeholder="Enter destination (optional)..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           )}
