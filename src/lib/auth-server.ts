@@ -129,6 +129,29 @@ export const signUpCustomerFn = createServerFn({ method: "POST" })
     }
   });
 
+const KNOWN_RIDERS = [
+  "anoop23@gmail.com",
+  "anna123@gmail.com",
+  "ram123@gmail.com",
+  "ramesh123@gmail.com",
+];
+
+export function getRoleForEmail(email: string, explicitRole?: string): "admin" | "rider" | "customer" {
+  const clean = email.toLowerCase().trim();
+  if (explicitRole === "admin" || clean === "admin@drivalong.com") return "admin";
+  if (
+    explicitRole === "rider" ||
+    explicitRole === "driver" ||
+    KNOWN_RIDERS.includes(clean) ||
+    clean.includes("driver") ||
+    clean.includes("rider") ||
+    clean.includes("chauffeur")
+  ) {
+    return "rider";
+  }
+  return "customer";
+}
+
 // Server function for Customer & Driver Sign In
 export const signInCustomerFn = createServerFn({ method: "POST" })
   .validator((data: SignInPayload) => data)
@@ -156,14 +179,17 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
       };
     }
 
-    // 2. Chauffeur Driver Check (e.g. anoop23@gmail.com)
-    if (cleanEmail === "anoop23@gmail.com" || cleanEmail.includes("driver") || cleanEmail.includes("rider")) {
+    // 2. Chauffeur Driver / Rider Check
+    const userRole = getRoleForEmail(cleanEmail);
+    if (userRole === "rider") {
+      const namePart = cleanEmail.split("@")[0];
+      const capitalizedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
       return {
         success: true,
-        message: "Signed in successfully as Chauffeur Driver!",
+        message: `Signed in successfully as Chauffeur Driver (${capitalizedName})!`,
         user: {
-          id: "RIDER_ANOOP_01",
-          name: cleanEmail === "anoop23@gmail.com" ? "Anoop" : "Chauffeur Driver",
+          id: "RIDER_" + cleanEmail.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase(),
+          name: capitalizedName,
           email: cleanEmail,
           phone: "+91 98450 12345",
           role: "rider",
@@ -183,7 +209,7 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
             name: cleanEmail.split("@")[0] || "User",
             email: cleanEmail,
             phone: "+91 98765 43210",
-            role: "customer",
+            role: userRole,
             createdAt: new Date().toISOString(),
           },
         };
@@ -214,7 +240,7 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
           name: customer.name,
           email: customer.email,
           phone: customer.phone,
-          role: customer.role || "customer",
+          role: customer.role || userRole,
           createdAt: customer.createdAt ? customer.createdAt.toISOString() : new Date().toISOString(),
         },
       };
@@ -228,7 +254,7 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
           name: cleanEmail.split("@")[0] || "User",
           email: cleanEmail,
           phone: "+91 98765 43210",
-          role: cleanEmail.includes("driver") || cleanEmail.includes("rider") ? "rider" : "customer",
+          role: userRole,
           createdAt: new Date().toISOString(),
         },
       };

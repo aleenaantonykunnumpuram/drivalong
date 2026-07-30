@@ -72,6 +72,10 @@ function AdminPanel() {
       .then((res) => {
         if (res.success && res.drivers) {
           setDrivers(res.drivers);
+          try {
+            const driverEmails = res.drivers.map((d: any) => d.email.toLowerCase().trim());
+            localStorage.setItem("drivalong_registered_drivers", JSON.stringify(driverEmails));
+          } catch {}
         }
       })
       .catch((err) => console.error("Failed to load drivers:", err));

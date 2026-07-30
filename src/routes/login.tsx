@@ -42,7 +42,18 @@ function Login() {
     setLoading(true);
     const cleanEmail = email.toLowerCase().trim();
 
-    // Instant Admin Login Fallback for production / Vercel
+    // Registered Driver / Rider Emails (Admin assigned drivers)
+    let registeredDriverEmails: string[] = ["anoop23@gmail.com", "anna123@gmail.com", "ram123@gmail.com", "ramesh123@gmail.com"];
+    try {
+      const stored = JSON.parse(localStorage.getItem("drivalong_registered_drivers") || "[]");
+      if (Array.isArray(stored)) {
+        registeredDriverEmails = Array.from(new Set([...registeredDriverEmails, ...stored]));
+      }
+    } catch {}
+
+    const isRider = registeredDriverEmails.includes(cleanEmail) || cleanEmail.includes("driver") || cleanEmail.includes("rider");
+
+    // Instant Admin Login Fallback
     if (cleanEmail === "admin@drivalong.com" && password === "AdminSecretPass123!") {
       const adminUser = {
         id: "ADMIN_SYSTEM_01",
@@ -59,18 +70,20 @@ function Login() {
       return;
     }
 
-    // Instant Driver / Rider Login Fallback for production / Vercel
-    if (cleanEmail === "anoop23@gmail.com" || cleanEmail.includes("driver") || cleanEmail.includes("rider")) {
+    // Instant Driver / Rider Login Fallback
+    if (isRider) {
+      const namePart = cleanEmail.split("@")[0];
+      const capitalizedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
       const driverUser = {
-        id: "RIDER_ANOOP_01",
-        name: cleanEmail === "anoop23@gmail.com" ? "Anoop" : "Chauffeur Driver",
+        id: "RIDER_" + cleanEmail.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase(),
+        name: capitalizedName,
         email: cleanEmail,
         phone: "+91 98450 12345",
         role: "rider",
         createdAt: new Date().toISOString(),
       };
       setStoredUser(driverUser);
-      toast.success(`Welcome back, ${driverUser.name}! (Chauffeur Portal)`);
+      toast.success(`Welcome back, ${capitalizedName}! (Chauffeur Portal)`);
       navigate({ to: "/driver" });
       setLoading(false);
       return;
@@ -86,7 +99,7 @@ function Login() {
         toast.success(`Welcome back, ${res.user.name}!`);
         if (res.user.role === "admin") {
           navigate({ to: "/admin" });
-        } else if (res.user.role === "rider") {
+        } else if (res.user.role === "rider" || res.user.role === "driver") {
           navigate({ to: "/driver" });
         } else {
           navigate({ to: "/dashboard" });
@@ -109,6 +122,20 @@ function Login() {
         setStoredUser(adminUser);
         toast.success("Welcome back, System Administrator!");
         navigate({ to: "/admin" });
+      } else if (isRider) {
+        const namePart = cleanEmail.split("@")[0];
+        const capitalizedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        const driverUser = {
+          id: "RIDER_" + cleanEmail.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase(),
+          name: capitalizedName,
+          email: cleanEmail,
+          phone: "+91 98450 12345",
+          role: "rider",
+          createdAt: new Date().toISOString(),
+        };
+        setStoredUser(driverUser);
+        toast.success(`Welcome back, ${capitalizedName}! (Chauffeur Portal)`);
+        navigate({ to: "/driver" });
       } else {
         setErrorMsg("Failed to sign in. Please verify your credentials.");
         toast.error("Sign in failed. Please try again.");
