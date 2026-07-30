@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   MapPin, Navigation, ArrowRight, ArrowLeft, Car, RouteIcon, Clock, Calendar,
@@ -9,6 +9,7 @@ import {
 import { GoogleMapComponent, type TripMetrics } from "./maps/GoogleMapComponent";
 import { formatCurrency, CHAUFFEUR_SERVICES, DURATION_HOURS, type ServiceType, type DurationOption } from "./maps/fareUtils";
 import { createBooking } from "@/lib/api/trip.functions";
+import { useAuthUser } from "@/lib/auth";
 
 type Transmission = "automatic" | "manual";
 type Timing = "now" | "later";
@@ -385,6 +386,7 @@ function StepDuration({ s, set, onNext, onBack }: { s: State; set: <K extends ke
 /* ------------------------ Step 5 · Payment ------------------------ */
 
 function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
+  const { user } = useAuthUser();
   const beforeOptions = ["UPI", "Credit Card", "Debit Card", "Net Banking", "Wallet"];
   const afterOptions = ["Cash", "UPI"];
   const active = s.payMode === "before" ? beforeOptions : afterOptions;
@@ -405,6 +407,36 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   const estimatedPrice = fare ? fare.totalFare : serviceDetails.baseFare + durationHours * serviceDetails.ratePerHour;
   const totalAmountStr = formatCurrency(estimatedPrice);
   const canPay = termsAgreed && policyAgreed;
+
+  if (!user) {
+    return (
+      <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-8 text-center space-y-4 animate-rise">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-500/20 text-amber-600">
+          <Lock className="h-7 w-7" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-foreground">Sign In Required to Book Chauffeur</h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
+            Only authenticated customers can book rides. Please log in or create an account to confirm your chauffeur driver.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
+          >
+            Sign In Now <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            to="/signup"
+            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-6 py-3 text-sm font-semibold hover:bg-muted"
+          >
+            Create New Account
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const handleProceedToPay = () => {
     if (!canPay || processing) return;
@@ -686,15 +718,24 @@ function Meta({ k, v }: { k: string; v: string }) {
 /* ------------------------ Step 6 · Confirmation ------------------------ */
 
 function StepConfirmation({ s }: { s: State }) {
+  const { user } = useAuthUser();
   const [bookingId, setBookingId] = useState<string>(
     () => "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000))
   );
 
+  const hasSubmittedRef = useRef(false);
+
   useEffect(() => {
-    if (!s.pickupCoords) return;
+    if (!s.pickupCoords || hasSubmittedRef.current) return;
+    hasSubmittedRef.current = true;
+
     let cancelled = false;
     createBooking({
       data: {
+        customerId: user?.id,
+        customerEmail: user?.email,
+        customerName: user?.name,
+        customerPhone: user?.phone,
         serviceType: s.serviceType,
         pickup: { lat: s.pickupCoords.lat, lng: s.pickupCoords.lng, address: s.pickup || "Pickup Location" },
         drop: s.dropCoords ? { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop } : undefined,

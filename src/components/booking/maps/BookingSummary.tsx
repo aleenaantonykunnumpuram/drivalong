@@ -28,7 +28,8 @@ export function BookingSummary({
   ready = true,
   className = "",
 }: BookingSummaryProps) {
-  const displayDist = distanceKm > 0 ? `${distanceKm} km` : fare && fare.distanceKm > 0 ? `${fare.distanceKm} km` : "Optional";
+  const distVal = distanceKm > 0 ? distanceKm : fare && fare.distanceKm > 0 ? fare.distanceKm : 0;
+  const displayDist = distVal > 0 ? `${distVal} km` : drop ? "Calculating..." : "Flexible Route";
   const displayDuration = durationText || (fare ? `${fare.durationMinutes} min` : null);
   const displayEta = etaLabel || (fare ? new Date(Date.now() + fare.durationMinutes * 60_000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null);
 

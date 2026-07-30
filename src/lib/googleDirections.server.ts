@@ -92,29 +92,10 @@ export async function fetchDrivingDirections(
   };
 
   if (data.status !== "OK") {
-    const R = 6371;
-    const dLat = ((destination.lat - origin.lat) * Math.PI) / 180;
-    const dLng = ((destination.lng - origin.lng) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((origin.lat * Math.PI) / 180) *
-        Math.cos((destination.lat * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distKm = Math.round(R * c * 1.3 * 10) / 10;
-    const durMin = Math.round(distKm * 1.5 + 5);
-
-    return {
-      distanceMeters: Math.round(distKm * 1000),
-      distanceKm: distKm,
-      durationSeconds: durMin * 60,
-      durationMinutes: durMin,
-      durationInTrafficMinutes: null,
-      startAddress: "",
-      endAddress: "",
-      overviewPolyline: "",
-    };
+    throw new DirectionsApiError(
+      data.error_message || `Directions API returned status ${data.status}.`,
+      data.status
+    );
   }
 
   const route = data.routes[0];

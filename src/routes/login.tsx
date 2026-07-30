@@ -48,7 +48,13 @@ function Login() {
       if (res.success && res.user) {
         setStoredUser(res.user);
         toast.success(`Welcome back, ${res.user.name}!`);
-        navigate({ to: "/" });
+        if (res.user.role === "admin") {
+          navigate({ to: "/admin" });
+        } else if (res.user.role === "rider") {
+          navigate({ to: "/driver" });
+        } else {
+          navigate({ to: "/dashboard" });
+        }
       } else {
         setErrorMsg(res.message || "Invalid email or password.");
         toast.error(res.message || "Sign in failed.");

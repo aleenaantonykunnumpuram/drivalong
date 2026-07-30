@@ -81,17 +81,24 @@ export function GoogleMapComponent({
   const [dropVerified, setDropVerified] = useState(false);
 
   const [locatingUser, setLocatingUser] = useState<boolean>(false);
-  const [distanceKm, setDistanceKm] = useState<number>(0);
-  const [durationMinutes, setDurationMinutes] = useState<number>(0);
-  const [durationText, setDurationText] = useState<string>("");
-  const [etaLabel, setEtaLabel] = useState<string>("");
-  const [etaTime, setEtaTime] = useState<string | null>(null);
-  const [routePolyline, setRoutePolyline] = useState<string | null>(null);
-  const [fare, setFare] = useState<FareBreakdown | null>(null);
+  const [metrics, setMetrics] = useState<TripMetrics | null>(null);
   const [estimating, setEstimating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const requestSeq = useRef(0);
+  const onMetricsCalculatedRef = useRef(onMetricsCalculated);
+
+  useEffect(() => {
+    onMetricsCalculatedRef.current = onMetricsCalculated;
+  }, [onMetricsCalculated]);
+
+  // Helper to atomically set metrics and trigger callback
+  const applyMetrics = useCallback((newMetrics: TripMetrics | null) => {
+    setMetrics(newMetrics);
+    if (newMetrics && onMetricsCalculatedRef.current) {
+      onMetricsCalculatedRef.current(newMetrics);
+    }
+  }, []);
 
   // Automatically detect user's current location using Browser Geolocation API
   const detectUserLocation = useCallback(() => {
@@ -216,13 +223,12 @@ export function GoogleMapComponent({
     return () => clearTimeout(timer);
   }, [drop, dropVerified, isLoaded, onDropChange]);
 
-  // Fetch trip estimate (route + fare) from backend
+  // Unified Route & Fare Fetching effect
   useEffect(() => {
     if (!pickupCoords || !pickupVerified) return;
 
     const seq = ++requestSeq.current;
     setEstimating(true);
-    setErrorMsg(null);
 
     const timer = setTimeout(async () => {
       try {
@@ -238,91 +244,56 @@ export function GoogleMapComponent({
         if (seq !== requestSeq.current) return;
 
         if (res.success) {
-          setDistanceKm(res.distanceKm);
-          setDurationMinutes(res.effectiveDurationMinutes);
-          setDurationText(
-            res.durationInTrafficMinutes
-              ? `${res.durationInTrafficMinutes} min (live traffic)`
-              : `${res.durationMinutes} min`
-          );
-          setEtaTime(res.etaTime);
-          setEtaLabel(
-            new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
-          );
-          setRoutePolyline(res.routePolyline || null);
-          setFare(res.fare);
-          setEstimating(false);
-
-          if (onMetricsCalculated) {
-            onMetricsCalculated({
-              distanceKm: res.distanceKm,
-              durationMinutes: res.effectiveDurationMinutes,
-              durationInTrafficMinutes: res.durationInTrafficMinutes ?? null,
-              durationText:
-                res.durationInTrafficMinutes ? `${res.durationInTrafficMinutes} min (live traffic)` : `${res.durationMinutes} min`,
-              etaLabel: new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-              etaTime: res.etaTime,
-              routePolyline: res.routePolyline || null,
-              fare: res.fare,
-            });
-          }
-        } else {
-          setEstimating(false);
-          setRoutePolyline(null);
           setErrorMsg(null);
+          const newMetrics: TripMetrics = {
+            distanceKm: res.distanceKm,
+            durationMinutes: res.effectiveDurationMinutes,
+            durationInTrafficMinutes: res.durationInTrafficMinutes ?? null,
+            durationText: res.durationInTrafficMinutes
+              ? `${res.durationInTrafficMinutes} min (live traffic)`
+              : `${res.durationMinutes} min`,
+            etaLabel: new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+            etaTime: res.etaTime,
+            routePolyline: res.routePolyline || null,
+            fare: res.fare,
+          };
+          applyMetrics(newMetrics);
+        } else {
+          setErrorMsg(res.error || "Unable to compute route between selected locations.");
         }
-      } catch (err) {
+      } catch (err: any) {
         if (seq !== requestSeq.current) return;
         console.error("Trip estimate request failed:", err);
-        setEstimating(false);
-        setRoutePolyline(null);
-        setErrorMsg(null);
+        setErrorMsg("Network or API error while calculating route.");
+      } finally {
+        if (seq === requestSeq.current) {
+          setEstimating(false);
+        }
       }
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [pickupCoords, dropCoords, pickupVerified, dropVerified, serviceType, duration, pickup, drop, onMetricsCalculated]);
+  }, [pickupCoords, dropCoords, pickupVerified, dropVerified, serviceType, duration, pickup, drop, applyMetrics]);
 
-  // Offline / Immediate calculation fallback
-  useEffect(() => {
-    if (routePolyline || estimating) return;
-    if (!pickupCoords) return;
-
-    const dist = pickupCoords && dropCoords ? computeHaversineDistance(pickupCoords.lat, pickupCoords.lng, dropCoords.lat, dropCoords.lng) : 0;
-    const estMinutes = (DURATION_HOURS[duration as DurationOption] || 4) * 60;
-    const fallbackFare = calculateFare(dist, estMinutes, serviceType as ServiceType);
-    const eta = new Date(Date.now() + estMinutes * 60_000);
-
-    setDistanceKm(dist);
-    setDurationMinutes(estMinutes);
-    setDurationText(`${duration}`);
-    setEtaTime(eta.toISOString());
-    setEtaLabel(eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
-    setFare(fallbackFare);
-
-    if (onMetricsCalculated) {
-      onMetricsCalculated({
-        distanceKm: dist,
-        durationMinutes: estMinutes,
-        durationInTrafficMinutes: null,
-        durationText: `${duration}`,
-        etaLabel: eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-        etaTime: eta.toISOString(),
-        routePolyline: null,
-        fare: fallbackFare,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupCoords, dropCoords, routePolyline, estimating, serviceType, duration]);
-
+  // Synchronized callback for client-side Google Maps Directions rendering fallback
   const handleClientRouteCalculated = useCallback(
-    (dist: number, durMin: number, timeStr: string) => {
-      setDistanceKm(dist);
-      setDurationMinutes(durMin);
-      setDurationText(timeStr);
+    (distKm: number, durMin: number, durText: string, polyline?: string) => {
+      const calculatedFare = calculateFare(distKm, durMin, serviceType as ServiceType);
+      const etaDate = new Date(Date.now() + durMin * 60_000);
+      const newMetrics: TripMetrics = {
+        distanceKm: distKm,
+        durationMinutes: durMin,
+        durationInTrafficMinutes: null,
+        durationText: durText,
+        etaLabel: etaDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+        etaTime: etaDate.toISOString(),
+        routePolyline: polyline || null,
+        fare: calculatedFare,
+      };
+      applyMetrics(newMetrics);
       setEstimating(false);
     },
-    []
+    [serviceType, applyMetrics]
   );
 
   return (
@@ -356,14 +327,14 @@ export function GoogleMapComponent({
           <BookingSummary
             pickup={pickup}
             drop={drop}
-            distanceKm={distanceKm}
-            durationMinutes={durationMinutes}
-            durationText={durationText}
-            etaLabel={etaLabel}
-            fare={fare}
+            distanceKm={metrics?.distanceKm ?? 0}
+            durationMinutes={metrics?.durationMinutes ?? 0}
+            durationText={metrics?.durationText ?? ""}
+            etaLabel={metrics?.etaLabel ?? ""}
+            fare={metrics?.fare ?? null}
             serviceType={serviceType}
             loading={estimating}
-            ready={pickupVerified && dropVerified}
+            ready={pickupVerified && Boolean(!drop || dropVerified)}
           />
         </div>
 
@@ -377,7 +348,7 @@ export function GoogleMapComponent({
             userCoords={userCoords}
             pickupText={pickup}
             dropText={drop}
-            routePolyline={routePolyline}
+            routePolyline={metrics?.routePolyline}
             onRouteCalculated={handleClientRouteCalculated}
             onRouteError={(err) => setErrorMsg(err)}
             className="h-full"

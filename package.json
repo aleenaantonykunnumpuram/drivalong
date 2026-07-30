@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "db:start": "node start-local-mongo.cjs",
     "db:import": "node import-to-mongodb.cjs",
-    "db:server": "node mongo-backend.js"
+    "db:server": "node mongo-backend.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

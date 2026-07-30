@@ -18,6 +18,9 @@ export interface IFareBreakdown {
 export interface ITrip extends Document {
   bookingId: string;
   customerId?: string;
+  customerEmail?: string;
+  customerName?: string;
+  customerPhone?: string;
   driverId?: string;
   driverName?: string;
   driverPhone?: string;
@@ -36,10 +39,11 @@ export interface ITrip extends Document {
   etaTime?: Date;
   routePolyline?: string;
   fare?: IFareBreakdown;
-  bookingStatus: "Pending" | "Assigned" | "Driver En Route" | "In Progress" | "Completed" | "Cancelled";
+  declineReason?: string;
+  bookingStatus: "Pending" | "Approved" | "Declined" | "Assigned" | "Driver En Route" | "In Progress" | "Completed" | "Cancelled";
   paymentStatus: "Pending" | "Paid";
   paymentMethod?: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "approved" | "declined" | "confirmed" | "completed" | "cancelled";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,9 +73,12 @@ const TripSchema = new Schema<ITrip>(
   {
     bookingId: { type: String, required: true, unique: true },
     customerId: { type: String },
+    customerEmail: { type: String, lowercase: true, index: true },
+    customerName: { type: String },
+    customerPhone: { type: String },
     driverId: { type: String },
-    driverName: { type: String, default: "Rajesh Kumar (Pro Chauffeur)" },
-    driverPhone: { type: String, default: "+91 98765 43210" },
+    driverName: { type: String, default: "Unassigned" },
+    driverPhone: { type: String, default: "" },
     serviceType: { type: String, required: true, default: "Hourly Chauffeur" },
     pickup: { type: LocationPointSchema, required: true },
     drop: { type: LocationPointSchema, default: null },
@@ -80,6 +87,7 @@ const TripSchema = new Schema<ITrip>(
     duration: { type: String, default: "4 Hours" },
     transmission: { type: String, default: "Automatic" },
     specialInstructions: { type: String, default: "" },
+    declineReason: { type: String, default: "" },
     estimatedPrice: { type: Number, required: true },
     distanceKm: { type: Number, default: 0 },
     durationMinutes: { type: Number, default: 60 },
@@ -89,8 +97,8 @@ const TripSchema = new Schema<ITrip>(
     fare: { type: FareBreakdownSchema },
     bookingStatus: {
       type: String,
-      enum: ["Pending", "Assigned", "Driver En Route", "In Progress", "Completed", "Cancelled"],
-      default: "Assigned",
+      enum: ["Pending", "Approved", "Declined", "Assigned", "Driver En Route", "In Progress", "Completed", "Cancelled"],
+      default: "Pending",
     },
     paymentStatus: {
       type: String,
@@ -100,8 +108,8 @@ const TripSchema = new Schema<ITrip>(
     paymentMethod: { type: String, default: "UPI" },
     status: {
       type: String,
-      enum: ["pending", "confirmed", "completed", "cancelled"],
-      default: "confirmed",
+      enum: ["pending", "approved", "declined", "confirmed", "completed", "cancelled"],
+      default: "pending",
     },
   },
   { timestamps: true }

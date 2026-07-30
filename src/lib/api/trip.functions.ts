@@ -34,21 +34,16 @@ export const getTripEstimate = createServerFn({ method: "POST" })
       let endAddress = data.drop?.address || "";
 
       if (data.drop && data.drop.lat && data.drop.lng) {
-        try {
-          const directions = await fetchDrivingDirections(
-            { lat: data.pickup.lat, lng: data.pickup.lng },
-            { lat: data.drop.lat, lng: data.drop.lng }
-          );
-          distanceKm = directions.distanceKm;
-          durationMinutes = directions.durationInTrafficMinutes ?? directions.durationMinutes;
-          durationInTrafficMinutes = directions.durationInTrafficMinutes ?? undefined;
-          routePolyline = directions.overviewPolyline;
-          startAddress = directions.startAddress || startAddress;
-          endAddress = directions.endAddress || endAddress;
-        } catch {
-          // Haversine fallback distance calculation
-          distanceKm = 15;
-        }
+        const directions = await fetchDrivingDirections(
+          { lat: data.pickup.lat, lng: data.pickup.lng },
+          { lat: data.drop.lat, lng: data.drop.lng }
+        );
+        distanceKm = directions.distanceKm;
+        durationMinutes = directions.durationInTrafficMinutes ?? directions.durationMinutes;
+        durationInTrafficMinutes = directions.durationInTrafficMinutes ?? undefined;
+        routePolyline = directions.overviewPolyline;
+        startAddress = directions.startAddress || startAddress;
+        endAddress = directions.endAddress || endAddress;
       }
 
       const fare = calculateFare(distanceKm, durationMinutes, data.serviceType as ServiceType);
@@ -80,6 +75,9 @@ export const createBooking = createServerFn({ method: "POST" })
   .validator(
     z.object({
       customerId: z.string().optional(),
+      customerEmail: z.string().optional(),
+      customerName: z.string().optional(),
+      customerPhone: z.string().optional(),
       serviceType: z.string().default("Hourly Chauffeur"),
       pickup: coordsSchema.extend({ address: z.string() }),
       drop: coordsSchema.extend({ address: z.string() }).optional().nullable(),
@@ -112,8 +110,11 @@ export const createBooking = createServerFn({ method: "POST" })
     const trip = await Trip.create({
       bookingId,
       customerId: data.customerId || "CUST_DEMO_01",
-      driverName: "Rajesh Kumar (Pro Chauffeur)",
-      driverPhone: "+91 98765 43210",
+      customerEmail: data.customerEmail ? data.customerEmail.toLowerCase().trim() : "",
+      customerName: data.customerName || "Customer",
+      customerPhone: data.customerPhone || "",
+      driverName: "Unassigned",
+      driverPhone: "",
       serviceType: data.serviceType,
       pickup: data.pickup,
       drop: data.drop || null,
@@ -129,11 +130,75 @@ export const createBooking = createServerFn({ method: "POST" })
       etaTime: data.etaTime ? new Date(data.etaTime) : new Date(),
       routePolyline: data.routePolyline,
       fare: data.fare,
-      bookingStatus: "Assigned",
+      bookingStatus: "Pending",
       paymentStatus: "Paid",
       paymentMethod: data.paymentMethod,
-      status: "confirmed",
+      status: "pending",
     });
 
     return { success: true as const, bookingId: trip.bookingId };
   });
+
+/**
+ * POST /api update booking status — approves or declines a booking with optional decline reason.
+ */
+export const updateBookingStatusFn = createServerFn({ method: "POST" })
+  .validator(
+    z.object({
+      bookingId: z.string(),
+      bookingStatus: z.enum(["Pending", "Approved", "Declined", "Assigned", "In Progress", "Completed", "Cancelled"]).optional(),
+      status: z.enum(["pending", "approved", "declined", "confirmed", "completed", "cancelled"]).optional(),
+      declineReason: z.string().optional(),
+    })
+  )
+  .handler(async ({ data }) => {
+    try {
+      await connectToDatabase();
+      const bookingStatus = data.bookingStatus || (data.status === "approved" ? "Approved" : data.status === "declined" ? "Declined" : "Pending");
+      const status = data.status || (bookingStatus === "Approved" || bookingStatus === "Assigned" ? "approved" : bookingStatus === "Declined" ? "declined" : "pending");
+
+      const updateData: any = { bookingStatus, status };
+      if (data.declineReason !== undefined) {
+        updateData.declineReason = data.declineReason;
+      }
+
+      const trip = await Trip.findOneAndUpdate({ bookingId: data.bookingId }, updateData, { new: true });
+      if (!trip) {
+        return { success: false, error: "Booking not found." };
+      }
+
+      return { success: true, trip: JSON.parse(JSON.stringify(trip)) };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Failed to update status." };
+    }
+  });
+
+/**
+ * GET /api user bookings — fetches all rides for a specific customer email
+ */
+export const getUserBookingsFn = createServerFn({ method: "POST" })
+  .validator(z.object({ email: z.string() }))
+  .handler(async ({ data }) => {
+    try {
+      await connectToDatabase();
+      const trips = await Trip.find({ customerEmail: data.email.toLowerCase().trim() }).sort({ createdAt: -1 });
+      return { success: true, trips: JSON.parse(JSON.stringify(trips)) };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Failed to fetch bookings." };
+    }
+  });
+
+/**
+ * GET /api all bookings — fetches all rides in MongoDB for Admin
+ */
+export const getAllBookingsFn = createServerFn({ method: "GET" })
+  .handler(async () => {
+    try {
+      await connectToDatabase();
+      const trips = await Trip.find({}).sort({ createdAt: -1 });
+      return { success: true, trips: JSON.parse(JSON.stringify(trips)) };
+    } catch (err: any) {
+      return { success: false, error: err?.message || "Failed to fetch all bookings." };
+    }
+  });
+

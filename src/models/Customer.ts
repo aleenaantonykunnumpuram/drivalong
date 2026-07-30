@@ -5,7 +5,7 @@ export interface ICustomer extends Document {
   email: string;
   phone: string;
   password?: string;
-  role: "customer" | "admin";
+  role: "customer" | "admin" | "rider";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,7 +36,7 @@ const CustomerSchema = new Schema<ICustomer>(
     },
     role: {
       type: String,
-      enum: ["customer", "admin"],
+      enum: ["customer", "admin", "rider"],
       default: "customer",
     },
   },

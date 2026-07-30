@@ -33,7 +33,6 @@ function HomePage() {
   return (
     <div ref={ref}>
       <Hero />
-      <TrustBar />
       <WhyChooseUs />
       <Services />
       <HowItWorks />
@@ -161,21 +160,7 @@ function Field({ icon, label, value, muted, small }: { icon?: React.ReactNode; l
   );
 }
 
-function TrustBar() {
-  const items = ["Zomato Executives", "Swiggy Leaders", "Flipkart VPs", "Razorpay Founders", "Cred VIPs", "PhonePe Executives"];
-  return (
-    <section className="border-y border-border bg-subtle py-8">
-      <div className="container-px mx-auto max-w-7xl">
-        <p className="text-center text-xs font-medium uppercase tracking-widest text-muted-foreground">Trusted by executives & car owners across India</p>
-        <div className="mt-6 overflow-hidden">
-          <div className="flex w-max animate-marquee items-center gap-16 text-lg font-semibold text-muted-foreground/70">
-            {[...items, ...items].map((x, i) => <span key={i} className="whitespace-nowrap">{x}</span>)}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
+
 
 function WhyChooseUs() {
   const items = [

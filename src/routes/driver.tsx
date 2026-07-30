@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { UserCheck, MapPin, Navigation, Clock, CheckCircle2, Phone, Play, CheckSquare, ShieldCheck } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { UserCheck, MapPin, Navigation, Clock, CheckCircle2, Phone, Play, CheckSquare, ShieldCheck, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
@@ -53,26 +54,112 @@ const mockTasks: DriverTask[] = [
   },
 ];
 
+const API_BASE = "http://127.0.0.1:5000";
+
 function DriverPortal() {
-  const [tasks, setTasks] = useState<DriverTask[]>(mockTasks);
+  const { user } = useAuthUser();
+  const [tasks, setTasks] = useState<DriverTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeDriverStatus, setActiveDriverStatus] = useState<"Online" | "Offline">("Online");
 
-  const handleUpdateStatus = (id: string, newStatus: DriverTask["status"]) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t)));
-    toast.success(`Booking ${id} status updated to: ${newStatus}`);
+  const fetchDriverTrips = () => {
+    if (!user) return;
+    setLoading(true);
+    const queryParam = user.role === "admin" ? "" : `?driverEmail=${encodeURIComponent(user.email)}`;
+    fetch(`${API_BASE}/api/bookings${queryParam}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success && res.trips) {
+          const mapped: DriverTask[] = res.trips.map((t: any) => ({
+            id: t.bookingId,
+            customerName: t.customerName || t.customerEmail || "Customer",
+            customerPhone: t.customerPhone || "+91 98000 00000",
+            serviceType: t.serviceType || "Hourly Chauffeur",
+            pickup: t.pickup?.address || "Pickup Location",
+            destination: t.drop?.address || "Flexible / Hourly Route",
+            time: `${t.bookingDate || "Today"} ${t.bookingTime || ""}`,
+            duration: t.duration || "4 Hours",
+            transmission: t.transmission || "Automatic",
+            price: `₹${t.estimatedPrice || t.fare?.totalFare || 797}`,
+            status: (t.bookingStatus === "Pending" ? "Pending Accept" : t.bookingStatus) as any,
+          }));
+          setTasks(mapped);
+        }
+      })
+      .catch((err) => console.error("Failed to load driver trips:", err))
+      .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    fetchDriverTrips();
+  }, [user]);
+
+  const handleUpdateStatus = async (id: string, newStatus: DriverTask["status"]) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/bookings/update-status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: id,
+          bookingStatus: newStatus,
+        }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        toast.success(`Booking ${id} status updated to: ${newStatus}`);
+        fetchDriverTrips();
+      } else {
+        toast.error(res.message || "Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error connecting to database server.");
+    }
+  };
+
+  if (!user || (user.role !== "rider" && user.role !== "admin")) {
+    return (
+      <div className="container-px mx-auto max-w-4xl py-16 text-center space-y-6 animate-rise">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+          <Lock className="h-10 w-10" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Driver Access Required</h1>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            Please log in with a registered Driver (Rider) account created by the Administrator to access your driver portal.
+          </p>
+        </div>
+        <div className="flex justify-center gap-4">
+          <Link
+            to="/login"
+            className="rounded-2xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-soft hover:brightness-110"
+          >
+            Sign In as Driver
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const driverInitial = user.name ? user.name.charAt(0).toUpperCase() : "D";
 
   return (
     <div className="container-px mx-auto max-w-7xl py-10 md:py-16 space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-xl font-bold text-primary">RK</div>
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+            {driverInitial}
+          </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Rajesh Kumar</h1>
-              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600">Pro Chauffeur</span>
+              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{user.name}</h1>
+              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
+                Verified Chauffeur ({user.role})
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">Rating: 4.98★ · 8+ yrs driving experience · Certified Automatic & Manual</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Email: {user.email} {user.phone ? `· Phone: ${user.phone}` : ""} · Certified Automatic & Manual
+            </p>
           </div>
         </div>
 

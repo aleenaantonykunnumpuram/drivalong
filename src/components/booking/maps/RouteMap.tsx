@@ -22,7 +22,7 @@ interface RouteMapProps {
    * client-side (e.g. the backend estimate hasn't returned yet, or the
    * server key isn't configured). Not used once `routePolyline` is set.
    */
-  onRouteCalculated?: (distanceKm: number, durationMinutes: number, durationText: string) => void;
+  onRouteCalculated?: (distanceKm: number, durationMinutes: number, durationText: string, overviewPolyline?: string) => void;
   onRouteError?: (msg: string) => void;
   className?: string;
 }
@@ -126,7 +126,8 @@ export function RouteMap({
             const distanceKm = (leg.distance?.value || 0) / 1000;
             const durationMinutes = (leg.duration?.value || 0) / 60;
             const durationText = leg.duration?.text || "Unknown";
-            onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText);
+            const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
+            onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
           }
         } else {
           console.warn("Directions request failed:", status);
@@ -215,7 +216,7 @@ export function RouteMap({
           </div>
           <h4 className="text-sm font-semibold text-foreground">Interactive Route & Location Map</h4>
           <p className="text-[11px] text-muted-foreground">
-            To unlock live Google satellite tiles on localhost, add <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">http://localhost:8080/*</code> to your API key restrictions in Google Cloud Console.
+            Live chauffeur navigation & distance estimation active. Add your Google Maps API key in <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code> for satellite tiles.
           </p>
         </div>
 

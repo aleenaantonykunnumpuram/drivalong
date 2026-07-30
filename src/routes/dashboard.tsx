@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Calendar, Clock, MapPin, UserCheck, Download, Navigation, XCircle, RefreshCw, CheckCircle2, Star, Shield, ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, Clock, MapPin, UserCheck, Download, Navigation, XCircle, RefreshCw, CheckCircle2, Star, Shield, ArrowRight, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthUser } from "@/lib/auth";
+import { getUserBookingsFn } from "@/lib/api/trip.functions";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -21,54 +23,60 @@ interface BookingItem {
   price: string;
   driverName: string;
   driverPhone: string;
-  status: "Assigned" | "In Progress" | "Completed" | "Cancelled";
+  status: "Pending" | "Approved" | "Declined" | "Assigned" | "In Progress" | "Completed" | "Cancelled";
+  declineReason?: string;
+  updatedAt?: string;
 }
 
-const mockBookings: BookingItem[] = [
-  {
-    id: "DAL20260730001",
-    serviceType: "Hourly Chauffeur",
-    pickup: "Indiranagar 100ft Road, Bengaluru",
-    destination: "Flexible / Shopping Stops",
-    date: "Today, 30 Jul 2026",
-    time: "18:30",
-    duration: "4 Hours",
-    price: "₹909",
-    driverName: "Rajesh Kumar",
-    driverPhone: "+91 98765 43210",
-    status: "Assigned",
-  },
-  {
-    id: "DAL20260728088",
-    serviceType: "Airport Chauffeur",
-    pickup: "Koramangala 4th Block, Bengaluru",
-    destination: "Kempegowda International Airport",
-    date: "28 Jul 2026",
-    time: "05:00",
-    duration: "2 Hours",
-    price: "₹799",
-    driverName: "Suresh Babu",
-    driverPhone: "+91 98450 11223",
-    status: "Completed",
-  },
-  {
-    id: "DAL20260725042",
-    serviceType: "Outstation Chauffeur",
-    pickup: "Whitefield Main Road, Bengaluru",
-    destination: "Mysuru Palace, Mysuru",
-    date: "25 Jul 2026",
-    time: "06:00",
-    duration: "12 Hours",
-    price: "₹2,499",
-    driverName: "Vikram Singh",
-    driverPhone: "+91 97312 99887",
-    status: "Completed",
-  },
-];
-
 function CustomerDashboard() {
+  const { user } = useAuthUser();
   const [tab, setTab] = useState<"upcoming" | "history">("upcoming");
-  const [bookings, setBookings] = useState<BookingItem[]>(mockBookings);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchUserBookings = (showSpinner = false) => {
+      if (showSpinner) setLoading(true);
+      getUserBookingsFn({ data: { email: user.email } })
+        .then((res) => {
+          if (res.success && res.trips) {
+            const mapped: BookingItem[] = res.trips.map((t: any) => {
+              let st = t.bookingStatus || "Pending";
+              if (t.status === "declined" || st === "Declined") st = "Declined";
+              else if (t.status === "approved" && st === "Pending") st = "Approved";
+
+              return {
+                id: t.bookingId,
+                serviceType: t.serviceType || "Hourly Chauffeur",
+                pickup: t.pickup?.address || "Pickup Location",
+                destination: t.drop?.address || "Flexible / Hourly Route",
+                date: t.bookingDate || new Date(t.createdAt).toLocaleDateString(),
+                time: t.bookingTime || "Scheduled",
+                duration: t.duration || "4 Hours",
+                price: `₹${t.estimatedPrice || t.fare?.totalFare || 797}`,
+                driverName: t.driverName || "Unassigned",
+                driverPhone: t.driverPhone || "",
+                status: st as any,
+                declineReason: t.declineReason || "",
+                updatedAt: t.updatedAt ? new Date(t.updatedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "",
+              };
+            });
+            setBookings(mapped);
+          }
+        })
+        .catch((err) => console.error("Failed to load user bookings:", err))
+        .finally(() => setLoading(false));
+    };
+
+    fetchUserBookings(true);
+    const interval = setInterval(() => fetchUserBookings(false), 10000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleCancelBooking = (id: string) => {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "Cancelled" } : b)));
@@ -83,17 +91,41 @@ function CustomerDashboard() {
     toast.success(`Invoice for ${id} downloaded.`);
   };
 
-  const upcomingList = bookings.filter((b) => b.status === "Assigned" || b.status === "In Progress");
-  const historyList = bookings.filter((b) => b.status === "Completed" || b.status === "Cancelled");
+  if (!user) {
+    return (
+      <div className="container-px mx-auto max-w-4xl py-16 text-center space-y-6">
+        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-primary/10 text-primary">
+          <Lock className="h-10 w-10" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Customer Dashboard Access</h1>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            Please log in to your Driv A Long customer account to view your past ride history, track active chauffeurs, and manage bookings.
+          </p>
+        </div>
+        <div className="flex justify-center gap-4">
+          <Link to="/login" search={{ redirect: "/dashboard" }} className="rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">
+            Sign In to Dashboard
+          </Link>
+          <Link to="/signup" search={{ redirect: "/dashboard" }} className="rounded-2xl border border-border bg-background px-6 py-3 text-sm font-semibold hover:bg-muted">
+            Create Account
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const upcomingList = bookings.filter((b) => b.status === "Pending" || b.status === "Approved" || b.status === "Assigned" || b.status === "In Progress");
+  const historyList = bookings.filter((b) => b.status === "Completed" || b.status === "Cancelled" || b.status === "Declined");
   const activeList = tab === "upcoming" ? upcomingList : historyList;
 
   return (
-    <div className="container-px mx-auto max-w-7xl py-10 md:py-16 space-y-8">
+    <div className="container-px mx-auto max-w-7xl py-10 md:py-16 space-y-8 animate-rise">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <span className="text-xs font-bold uppercase tracking-widest text-primary">Your Driver, Your Car</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-primary">Logged in as {user.name} ({user.email})</span>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Customer Dashboard</h1>
-          <p className="text-xs text-muted-foreground mt-1">Manage your chauffeur bookings, track drivers, and view trip history.</p>
+          <p className="text-xs text-muted-foreground mt-1">Manage your chauffeur bookings, track approval status, and view trip history in real time.</p>
         </div>
         <Link to="/book" className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">
           Book New Chauffeur <ArrowRight className="h-4 w-4" />
@@ -105,7 +137,7 @@ function CustomerDashboard() {
           onClick={() => setTab("upcoming")}
           className={`rounded-xl px-5 py-2.5 transition ${tab === "upcoming" ? "bg-background text-foreground shadow-soft" : "text-muted-foreground"}`}
         >
-          Upcoming Bookings ({upcomingList.length})
+          Active & Upcoming ({upcomingList.length})
         </button>
         <button
           onClick={() => setTab("history")}
@@ -115,11 +147,21 @@ function CustomerDashboard() {
         </button>
       </div>
 
-      {activeList.length === 0 ? (
+      {loading ? (
+        <div className="rounded-3xl border border-border bg-background p-12 text-center space-y-3">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+          <p className="text-xs text-muted-foreground">Loading your rides from MongoDB...</p>
+        </div>
+      ) : activeList.length === 0 ? (
         <div className="rounded-3xl border border-border bg-background p-12 text-center space-y-3">
           <UserCheck className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="text-lg font-semibold">No bookings found</h3>
-          <p className="text-xs text-muted-foreground">You have no {tab} chauffeur bookings at the moment.</p>
+          <h3 className="text-lg font-semibold">No {tab} bookings found</h3>
+          <p className="text-xs text-muted-foreground">You have no {tab} chauffeur bookings recorded under {user.email}.</p>
+          <div className="pt-2">
+            <Link to="/book" className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground shadow-soft">
+              Book a Chauffeur Now <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -129,10 +171,12 @@ function CustomerDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-xs font-bold text-primary">{b.id}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
-                    b.status === "Assigned" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30" :
-                    b.status === "Completed" ? "bg-blue-500/10 text-blue-600" : "bg-destructive/10 text-destructive"
+                    b.status === "Approved" || b.status === "Assigned" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30" :
+                    b.status === "Pending" ? "bg-amber-500/10 text-amber-600 border border-amber-500/30 animate-pulse" :
+                    b.status === "Completed" ? "bg-blue-500/10 text-blue-600 border border-blue-500/30" :
+                    "bg-destructive/10 text-destructive border border-destructive/30"
                   }`}>
-                    <CheckCircle2 className="h-3 w-3" /> {b.status}
+                    {b.status === "Pending" ? "🟡 Pending Approval" : b.status === "Approved" ? "🟢 Approved" : b.status === "Declined" ? "🔴 Declined" : b.status}
                   </span>
                 </div>
 
@@ -158,13 +202,58 @@ function CustomerDashboard() {
                   </div>
                 </div>
 
+                {/* Status Explanation Card */}
+                {b.status === "Pending" && (
+                  <div className="rounded-2xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs space-y-1 text-amber-800 dark:text-amber-300">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                      <Clock className="h-4 w-4 animate-spin shrink-0" /> Pending Approval
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      Your booking has been submitted successfully and is waiting for admin approval.
+                    </p>
+                  </div>
+                )}
+
+                {b.status === "Approved" && (
+                  <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 text-xs space-y-1 text-emerald-800 dark:text-emerald-300">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-4 w-4 shrink-0" /> Approved
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      Your booking has been approved. Our chauffeur will contact you shortly.
+                    </p>
+                  </div>
+                )}
+
+                {b.status === "Declined" && (
+                  <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-3.5 text-xs space-y-1 text-destructive">
+                    <div className="font-bold flex items-center gap-1.5 text-destructive">
+                      <XCircle className="h-4 w-4 shrink-0" /> Declined
+                    </div>
+                    <p className="text-[11px] leading-relaxed">
+                      Unfortunately, your booking has been declined.
+                    </p>
+                    {b.declineReason && (
+                      <p className="text-[11px] font-semibold italic border-t border-destructive/20 pt-1 mt-1">
+                        Reason: "{b.declineReason}"
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {b.status === "Assigned" && (
                   <div className="rounded-2xl bg-subtle p-3 text-xs space-y-1">
                     <div className="font-semibold text-foreground flex items-center gap-1.5">
-                      <UserCheck className="h-3.5 w-3.5 text-primary" /> Driver: {b.driverName}
+                      <UserCheck className="h-3.5 w-3.5 text-primary" /> Chauffeur: {b.driverName}
                     </div>
-                    <p className="text-muted-foreground text-[11px]">Phone: {b.driverPhone} · En Route</p>
+                    <p className="text-muted-foreground text-[11px]">Phone: {b.driverPhone || "Assigned"} · Verified Driver</p>
                   </div>
+                )}
+
+                {b.updatedAt && (
+                  <p className="text-[10px] text-muted-foreground text-right">
+                    Last updated: {b.updatedAt}
+                  </p>
                 )}
               </div>
 
@@ -197,7 +286,7 @@ function CustomerDashboard() {
                     onClick={() => handleDownloadInvoice(b.id)}
                     className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-border bg-subtle py-2 text-xs font-semibold text-foreground hover:bg-muted"
                   >
-                    <Download className="h-3.5 w-3.5" /> Download Invoice
+                    <Download className="h-3.5 w-3.5" /> Download Summary
                   </button>
                 )}
               </div>
@@ -208,3 +297,4 @@ function CustomerDashboard() {
     </div>
   );
 }
+
