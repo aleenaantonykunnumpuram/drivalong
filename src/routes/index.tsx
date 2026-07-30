@@ -117,8 +117,8 @@ function QuickBook() {
       </div>
 
       <div className="mt-4 space-y-3">
-        <Field icon={<span className="h-2.5 w-2.5 rounded-full bg-primary" />} label="Pickup" value="Indiranagar, Bengaluru" />
-        <Field icon={<span className="h-2.5 w-2.5 rounded-sm bg-secondary" />} label="Drop" value={tab === "rental" ? "Not required" : "Kempegowda Intl. Airport"} muted={tab === "rental"} />
+        <Field icon={<span className="h-2.5 w-2.5 rounded-full bg-primary" />} label="Pickup" value="Search pickup location..." />
+        <Field icon={<span className="h-2.5 w-2.5 rounded-sm bg-secondary" />} label="Drop" value={tab === "rental" ? "Not required" : "Search destination..."} muted={tab === "rental"} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Date" value="Today" small />
           <Field label="Time" value="Now" small />

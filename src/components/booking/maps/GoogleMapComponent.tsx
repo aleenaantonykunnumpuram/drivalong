@@ -1,23 +1,34 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useJsApiLoader, Libraries } from "@react-google-maps/api";
 import { LocationSearch } from "./LocationSearch";
 import { RouteMap } from "./RouteMap";
 import { BookingSummary } from "./BookingSummary";
-import { computeHaversineDistance } from "./fareUtils";
-import { MapPin, Navigation, RouteIcon, Sparkles } from "lucide-react";
+import { computeHaversineDistance, calculateFare, type FareBreakdown, type VehicleType } from "./fareUtils";
+import { getTripEstimate } from "@/lib/api/trip.functions";
 
 interface Coords {
   lat: number;
   lng: number;
 }
 
+export interface TripMetrics {
+  distanceKm: number;
+  durationMinutes: number;
+  durationInTrafficMinutes: number | null;
+  durationText: string;
+  etaLabel: string;
+  etaTime: string | null;
+  routePolyline: string | null;
+  fare: FareBreakdown;
+}
+
 interface GoogleMapComponentProps {
   pickup: string;
   drop: string;
   vehicleType?: string;
-  onPickupChange: (val: string, coords?: Coords) => void;
-  onDropChange: (val: string, coords?: Coords) => void;
-  onMetricsCalculated?: (distanceKm: number, durationText: string) => void;
+  onPickupChange: (val: string, coords?: Coords, verified?: boolean) => void;
+  onDropChange: (val: string, coords?: Coords, verified?: boolean) => void;
+  onMetricsCalculated?: (metrics: TripMetrics) => void;
   className?: string;
 }
 
@@ -35,22 +46,43 @@ export function GoogleMapComponent({
   // Load Google Maps JavaScript API script
   const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || "";
 
+  const [mapAuthFailed, setMapAuthFailed] = useState<boolean>(false);
+
   const { isLoaded: scriptLoaded, loadError } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: apiKey,
     libraries,
   });
 
-  const isLoaded = Boolean(apiKey && apiKey.trim().length > 0) && scriptLoaded;
+  // Catch global Google Maps auth failures (e.g., ApiNotActivatedMapError / BillingNotEnabledMapError)
+  useEffect(() => {
+    window.gm_authFailure = () => {
+      console.warn("Google Maps authentication failed (gm_authFailure). Falling back to interactive map view.");
+      setMapAuthFailed(true);
+      setErrorMsg("Google Maps API key error (ApiNotActivatedMapError). Please enable Maps JavaScript API in Google Cloud Console.");
+    };
+  }, []);
+
+  const isLoaded = Boolean(apiKey && apiKey.trim().length > 0) && scriptLoaded && !mapAuthFailed;
 
   const [userCoords, setUserCoords] = useState<Coords | null>(null);
   const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
   const [dropCoords, setDropCoords] = useState<Coords | null>(null);
+  const [pickupVerified, setPickupVerified] = useState(false);
+  const [dropVerified, setDropVerified] = useState(false);
 
   const [locatingUser, setLocatingUser] = useState<boolean>(false);
-  const [distanceKm, setDistanceKm] = useState<number>(34); // Default estimation
-  const [durationText, setDurationText] = useState<string>("48 min");
+  const [distanceKm, setDistanceKm] = useState<number>(0);
+  const [durationMinutes, setDurationMinutes] = useState<number>(0);
+  const [durationText, setDurationText] = useState<string>("");
+  const [etaLabel, setEtaLabel] = useState<string>("");
+  const [etaTime, setEtaTime] = useState<string | null>(null);
+  const [routePolyline, setRoutePolyline] = useState<string | null>(null);
+  const [fare, setFare] = useState<FareBreakdown | null>(null);
+  const [estimating, setEstimating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const requestSeq = useRef(0);
 
   // Automatically detect user's current location using Browser Geolocation API
   const detectUserLocation = useCallback(() => {
@@ -70,29 +102,29 @@ export function GoogleMapComponent({
         };
         setUserCoords(coords);
         setPickupCoords(coords);
+        setPickupVerified(true);
         setLocatingUser(false);
 
-        // Geocode coordinates to address string if Google Maps API is ready
         if (window.google?.maps?.Geocoder) {
           const geocoder = new window.google.maps.Geocoder();
           geocoder.geocode({ location: coords }, (results, status) => {
             if (status === "OK" && results && results[0]) {
-              onPickupChange(results[0].formatted_address, coords);
+              onPickupChange(results[0].formatted_address, coords, true);
             } else {
-              onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords);
+              onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
             }
           });
         } else {
-          onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords);
+          onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
         }
       },
       (error) => {
         setLocatingUser(false);
         console.warn("Geolocation permission error:", error.message);
         if (error.code === error.PERMISSION_DENIED) {
-          setErrorMsg("Location permission denied. Please enter pickup address manually.");
+          setErrorMsg("Location permission denied. Please search and select your pickup address.");
         } else {
-          setErrorMsg("Could not retrieve your current location. Please enter manually.");
+          setErrorMsg("Could not retrieve your current location. Please search for an address.");
         }
       },
       { timeout: 10000, enableHighAccuracy: true }
@@ -102,57 +134,196 @@ export function GoogleMapComponent({
   // Trigger Geolocation detection on mount
   useEffect(() => {
     detectUserLocation();
-  }, [detectUserLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Geocode pickup address when changed manually
+  // Auto-geocode Pickup text if typed manually without selecting dropdown
   useEffect(() => {
-    if (!pickup || !isLoaded || !window.google?.maps?.Geocoder) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: pickup }, (results, status) => {
-      if (status === "OK" && results && results[0]) {
-        const loc = results[0].geometry.location;
-        setPickupCoords({ lat: loc.lat(), lng: loc.lng() });
+    if (!pickup || pickup.trim().length < 3 || pickupVerified) return;
+
+    const timer = setTimeout(async () => {
+      if (window.google?.maps?.Geocoder && isLoaded) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: pickup }, (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            const loc = results[0].geometry.location;
+            const coords = { lat: loc.lat(), lng: loc.lng() };
+            setPickupCoords(coords);
+            setPickupVerified(true);
+            onPickupChange(pickup, coords, true);
+          }
+        });
+      } else {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`);
+          const data = await res.json();
+          if (data && data[0]) {
+            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+            setPickupCoords(coords);
+            setPickupVerified(true);
+            onPickupChange(pickup, coords, true);
+          }
+        } catch (err) {
+          console.warn("Fallback geocoding failed:", err);
+        }
       }
-    });
-  }, [pickup, isLoaded]);
+    }, 600);
 
-  // Geocode drop address when changed manually
+    return () => clearTimeout(timer);
+  }, [pickup, pickupVerified, isLoaded, onPickupChange]);
+
+  // Auto-geocode Drop text if typed manually without selecting dropdown
   useEffect(() => {
-    if (!drop || !isLoaded || !window.google?.maps?.Geocoder) return;
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ address: drop }, (results, status) => {
-      if (status === "OK" && results && results[0]) {
-        const loc = results[0].geometry.location;
-        setDropCoords({ lat: loc.lat(), lng: loc.lng() });
+    if (!drop || drop.trim().length < 3 || dropVerified) return;
+
+    const timer = setTimeout(async () => {
+      if (window.google?.maps?.Geocoder && isLoaded) {
+        const geocoder = new window.google.maps.Geocoder();
+        geocoder.geocode({ address: drop }, (results, status) => {
+          if (status === "OK" && results && results[0]) {
+            const loc = results[0].geometry.location;
+            const coords = { lat: loc.lat(), lng: loc.lng() };
+            setDropCoords(coords);
+            setDropVerified(true);
+            onDropChange(drop, coords, true);
+          }
+        });
+      } else {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}`);
+          const data = await res.json();
+          if (data && data[0]) {
+            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+            setDropCoords(coords);
+            setDropVerified(true);
+            onDropChange(drop, coords, true);
+          }
+        } catch (err) {
+          console.warn("Fallback geocoding failed:", err);
+        }
       }
-    });
-  }, [drop, isLoaded]);
+    }, 600);
 
-  // Fallback distance calculation if Directions Service is unavailable
+    return () => clearTimeout(timer);
+  }, [drop, dropVerified, isLoaded, onDropChange]);
+
+  // Fetch an authoritative trip estimate (route + fare) from the backend
+  // whenever both pickup and drop have been selected from Google's
+  // suggestions and have resolved coordinates. Debounced + sequence-guarded
+  // so a fast edit can't let a stale response overwrite a newer one.
   useEffect(() => {
-    if (pickupCoords && dropCoords && (!isLoaded || loadError)) {
-      const dist = computeHaversineDistance(
-        pickupCoords.lat,
-        pickupCoords.lng,
-        dropCoords.lat,
-        dropCoords.lng
-      );
-      setDistanceKm(dist);
-      const estMins = Math.round(dist * 1.5 + 5);
-      const estTime = `${estMins} min`;
-      setDurationText(estTime);
-      if (onMetricsCalculated) onMetricsCalculated(dist, estTime);
+    if (!pickupCoords || !dropCoords || !pickupVerified || !dropVerified) {
+      return;
     }
-  }, [pickupCoords, dropCoords, isLoaded, loadError, onMetricsCalculated]);
 
-  const handleRouteCalculated = useCallback(
-    (dist: number, timeStr: string) => {
+    const seq = ++requestSeq.current;
+    setEstimating(true);
+    setErrorMsg(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await getTripEstimate({
+          data: {
+            pickup: { lat: pickupCoords.lat, lng: pickupCoords.lng, address: pickup },
+            drop: { lat: dropCoords.lat, lng: dropCoords.lng, address: drop },
+            vehicleType: vehicleType as VehicleType,
+          },
+        });
+
+        if (seq !== requestSeq.current) return; // stale response
+
+        if (res.success) {
+          setDistanceKm(res.distanceKm);
+          setDurationMinutes(res.effectiveDurationMinutes);
+          setDurationText(
+            res.durationInTrafficMinutes
+              ? `${res.durationInTrafficMinutes} min (live traffic)`
+              : `${res.durationMinutes} min`
+          );
+          setEtaTime(res.etaTime);
+          setEtaLabel(
+            new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+          );
+          setRoutePolyline(res.routePolyline || null);
+          setFare(res.fare);
+          setEstimating(false);
+
+          if (onMetricsCalculated) {
+            onMetricsCalculated({
+              distanceKm: res.distanceKm,
+              durationMinutes: res.effectiveDurationMinutes,
+              durationInTrafficMinutes: res.durationInTrafficMinutes,
+              durationText:
+                res.durationInTrafficMinutes ? `${res.durationInTrafficMinutes} min (live traffic)` : `${res.durationMinutes} min`,
+              etaLabel: new Date(res.etaTime).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+              etaTime: res.etaTime,
+              routePolyline: res.routePolyline || null,
+              fare: res.fare,
+            });
+          }
+        } else {
+          setEstimating(false);
+          setRoutePolyline(null);
+          setErrorMsg(null);
+        }
+      } catch (err) {
+        if (seq !== requestSeq.current) return;
+        console.error("Trip estimate request failed:", err);
+        setEstimating(false);
+        setRoutePolyline(null);
+        setErrorMsg(null);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [pickupCoords, dropCoords, pickupVerified, dropVerified, vehicleType, pickup, drop, onMetricsCalculated]);
+
+  // Offline fallback: Haversine-based distance + simple duration estimate,
+  // used only when the backend Directions call above has failed or when
+  // coordinates aren't both verified yet but are available.
+  useEffect(() => {
+    if (routePolyline || estimating) return;
+    if (!pickupCoords || !dropCoords) return;
+    if (fare && distanceKm > 0) return; // backend estimate already succeeded
+
+    const dist = computeHaversineDistance(pickupCoords.lat, pickupCoords.lng, dropCoords.lat, dropCoords.lng);
+    const estMinutes = Math.round(dist * 1.5 + 5);
+    const fallbackFare = calculateFare(dist, estMinutes, vehicleType as VehicleType);
+    const eta = new Date(Date.now() + estMinutes * 60_000);
+
+    setDistanceKm(dist);
+    setDurationMinutes(estMinutes);
+    setDurationText(`${estMinutes} min (approx.)`);
+    setEtaTime(eta.toISOString());
+    setEtaLabel(eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    setFare(fallbackFare);
+
+    if (onMetricsCalculated) {
+      onMetricsCalculated({
+        distanceKm: dist,
+        durationMinutes: estMinutes,
+        durationInTrafficMinutes: null,
+        durationText: `${estMinutes} min (approx.)`,
+        etaLabel: eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+        etaTime: eta.toISOString(),
+        routePolyline: null,
+        fare: fallbackFare,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickupCoords, dropCoords, routePolyline, estimating]);
+
+  const handleClientRouteCalculated = useCallback(
+    (dist: number, durMin: number, timeStr: string) => {
       setDistanceKm(dist);
+      setDurationMinutes(durMin);
       setDurationText(timeStr);
-      setErrorMsg(null);
-      if (onMetricsCalculated) onMetricsCalculated(dist, timeStr);
+      const eta = new Date(Date.now() + durMin * 60_000);
+      setEtaTime(eta.toISOString());
+      setEtaLabel(eta.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+      setEstimating(false);
     },
-    [onMetricsCalculated]
+    []
   );
 
   return (
@@ -164,13 +335,25 @@ export function GoogleMapComponent({
             isLoaded={isLoaded && !loadError}
             pickup={pickup}
             drop={drop}
-            onPickupChange={(val, coords) => {
-              onPickupChange(val, coords);
+            pickupVerified={pickupVerified}
+            dropVerified={dropVerified}
+            onPickupChange={(val, coords, verified) => {
+              onPickupChange(val, coords, verified);
               if (coords) setPickupCoords(coords);
+              setPickupVerified(Boolean(verified));
+              if (!coords) {
+                setRoutePolyline(null);
+                setFare(null);
+              }
             }}
-            onDropChange={(val, coords) => {
-              onDropChange(val, coords);
+            onDropChange={(val, coords, verified) => {
+              onDropChange(val, coords, verified);
               if (coords) setDropCoords(coords);
+              setDropVerified(Boolean(verified));
+              if (!coords) {
+                setRoutePolyline(null);
+                setFare(null);
+              }
             }}
             onUseCurrentLocation={detectUserLocation}
             locatingUser={locatingUser}
@@ -182,8 +365,13 @@ export function GoogleMapComponent({
             pickup={pickup}
             drop={drop}
             distanceKm={distanceKm}
+            durationMinutes={durationMinutes}
             durationText={durationText}
+            etaLabel={etaLabel}
+            fare={fare}
             vehicleType={vehicleType}
+            loading={estimating}
+            ready={pickupVerified && dropVerified}
           />
         </div>
 
@@ -197,7 +385,8 @@ export function GoogleMapComponent({
             userCoords={userCoords}
             pickupText={pickup}
             dropText={drop}
-            onRouteCalculated={handleRouteCalculated}
+            routePolyline={routePolyline}
+            onRouteCalculated={handleClientRouteCalculated}
             onRouteError={(err) => setErrorMsg(err)}
             className="h-full"
           />

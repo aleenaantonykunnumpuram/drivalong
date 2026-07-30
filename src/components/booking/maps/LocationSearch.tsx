@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { Autocomplete } from "@react-google-maps/api";
-import { MapPin, Navigation, AlertTriangle, X, Search } from "lucide-react";
+import { MapPin, Navigation, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 
 interface LocationSearchProps {
   isLoaded: boolean;
   pickup: string;
   drop: string;
-  onPickupChange: (val: string, coords?: { lat: number; lng: number }) => void;
-  onDropChange: (val: string, coords?: { lat: number; lng: number }) => void;
+  pickupVerified?: boolean;
+  dropVerified?: boolean;
+  onPickupChange: (val: string, coords?: { lat: number; lng: number }, verified?: boolean) => void;
+  onDropChange: (val: string, coords?: { lat: number; lng: number }, verified?: boolean) => void;
   onUseCurrentLocation: () => void;
   locatingUser?: boolean;
   errorMsg?: string | null;
@@ -18,6 +20,8 @@ export function LocationSearch({
   isLoaded,
   pickup,
   drop,
+  pickupVerified = false,
+  dropVerified = false,
   onPickupChange,
   onDropChange,
   onUseCurrentLocation,
@@ -31,15 +35,13 @@ export function LocationSearch({
   const onPickupPlaceChanged = () => {
     if (pickupAutocomplete !== null) {
       const place = pickupAutocomplete.getPlace();
+      const lat = place.geometry?.location?.lat();
+      const lng = place.geometry?.location?.lng();
+      const hasCoords = lat !== undefined && lng !== undefined;
       if (place.formatted_address) {
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-        onPickupChange(
-          place.formatted_address,
-          lat !== undefined && lng !== undefined ? { lat, lng } : undefined
-        );
+        onPickupChange(place.formatted_address, hasCoords ? { lat, lng } : undefined, hasCoords);
       } else if (place.name) {
-        onPickupChange(place.name);
+        onPickupChange(place.name, hasCoords ? { lat, lng } : undefined, hasCoords);
       }
     }
   };
@@ -47,15 +49,13 @@ export function LocationSearch({
   const onDropPlaceChanged = () => {
     if (dropAutocomplete !== null) {
       const place = dropAutocomplete.getPlace();
+      const lat = place.geometry?.location?.lat();
+      const lng = place.geometry?.location?.lng();
+      const hasCoords = lat !== undefined && lng !== undefined;
       if (place.formatted_address) {
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-        onDropChange(
-          place.formatted_address,
-          lat !== undefined && lng !== undefined ? { lat, lng } : undefined
-        );
+        onDropChange(place.formatted_address, hasCoords ? { lat, lng } : undefined, hasCoords);
       } else if (place.name) {
-        onDropChange(place.name);
+        onDropChange(place.name, hasCoords ? { lat, lng } : undefined, hasCoords);
       }
     }
   };
@@ -96,7 +96,7 @@ export function LocationSearch({
           </button>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring">
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring ${pickupVerified ? "border-primary/40" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
@@ -107,8 +107,8 @@ export function LocationSearch({
               <input
                 type="text"
                 value={pickup}
-                onChange={(e) => onPickupChange(e.target.value)}
-                placeholder="Enter pickup address..."
+                onChange={(e) => onPickupChange(e.target.value, undefined, false)}
+                placeholder="Search pickup address..."
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </Autocomplete>
@@ -116,10 +116,15 @@ export function LocationSearch({
             <input
               type="text"
               value={pickup}
-              onChange={(e) => onPickupChange(e.target.value)}
+              onChange={(e) => onPickupChange(e.target.value, undefined, false)}
               placeholder="Enter pickup location..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
+          )}
+          {pickupVerified ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" aria-label="Verified location" />
+          ) : (
+            pickup && <span className="text-[10px] font-semibold tracking-wide text-primary animate-pulse shrink-0">Resolving location...</span>
           )}
         </div>
       </div>
@@ -130,7 +135,7 @@ export function LocationSearch({
           <span>Drop-off Location</span>
         </div>
 
-        <div className="flex items-center gap-3 rounded-2xl border border-border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring">
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring ${dropVerified ? "border-secondary/50" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
@@ -141,8 +146,8 @@ export function LocationSearch({
               <input
                 type="text"
                 value={drop}
-                onChange={(e) => onDropChange(e.target.value)}
-                placeholder="Enter destination address..."
+                onChange={(e) => onDropChange(e.target.value, undefined, false)}
+                placeholder="Search drop-off address..."
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </Autocomplete>
@@ -150,13 +155,24 @@ export function LocationSearch({
             <input
               type="text"
               value={drop}
-              onChange={(e) => onDropChange(e.target.value)}
+              onChange={(e) => onDropChange(e.target.value, undefined, false)}
               placeholder="Enter destination location..."
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           )}
+          {dropVerified ? (
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-secondary" aria-label="Verified location" />
+          ) : (
+            drop && <span className="text-[10px] font-semibold tracking-wide text-primary animate-pulse shrink-0">Resolving location...</span>
+          )}
         </div>
       </div>
+
+      {(!pickupVerified || !dropVerified) && (pickup || drop) && (
+        <p className="text-[11px] text-muted-foreground">
+          Select an address from the Google suggestions dropdown for pickup and drop-off so we can calculate an accurate route and fare.
+        </p>
+      )}
     </div>
   );
 }

@@ -15,8 +15,6 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
-.env
-mongodb-data
 
 # Wrangler / Cloudflare
 .wrangler/
