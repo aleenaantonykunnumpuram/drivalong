@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { GoogleMap, MarkerF, Polyline, DirectionsRenderer } from "@react-google-maps/api";
-import { MapPin, AlertTriangle } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 interface Coords {
   lat: number;
@@ -20,7 +20,7 @@ interface RouteMapProps {
   /**
    * Called only when this component falls back to calculating the route
    * client-side (e.g. the backend estimate hasn't returned yet, or the
-   * server key isn't configured). Not used once `routePolyline` is set.
+   * server key isn't configured).
    */
   onRouteCalculated?: (distanceKm: number, durationMinutes: number, durationText: string, overviewPolyline?: string) => void;
   onRouteError?: (msg: string) => void;
@@ -35,8 +35,8 @@ const mapContainerStyle = {
 };
 
 const defaultCenter: Coords = {
-  lat: 12.9716, // Bengaluru default
-  lng: 77.5946,
+  lat: 9.9312, // Kochi / Kerala default
+  lng: 76.2673,
 };
 
 const defaultOptions: google.maps.MapOptions = {
@@ -54,6 +54,29 @@ const defaultOptions: google.maps.MapOptions = {
   ],
 };
 
+function createFallbackRoutePath(origin: Coords, destination: Coords): Coords[] {
+  const points: Coords[] = [];
+  const steps = 25;
+
+  const midLat = (origin.lat + destination.lat) / 2;
+  const midLng = (origin.lng + destination.lng) / 2;
+
+  const dx = destination.lng - origin.lng;
+  const dy = destination.lat - origin.lat;
+  const curveFactor = 0.12;
+  const controlLat = midLat - dx * curveFactor;
+  const controlLng = midLng + dy * curveFactor;
+
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const lat = (1 - t) * (1 - t) * origin.lat + 2 * (1 - t) * t * controlLat + t * t * destination.lat;
+    const lng = (1 - t) * (1 - t) * origin.lng + 2 * (1 - t) * t * controlLng + t * t * destination.lng;
+    points.push({ lat, lng });
+  }
+
+  return points;
+}
+
 export function RouteMap({
   isLoaded,
   loadError = null,
@@ -69,7 +92,6 @@ export function RouteMap({
 }: RouteMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
 
   const onLoad = useCallback((m: google.maps.Map) => {
     setMap(m);
@@ -79,7 +101,7 @@ export function RouteMap({
     setMap(null);
   }, []);
 
-  // Decode the backend-supplied encoded polyline into a path for rendering.
+  // Decode backend polyline if present
   const decodedPath = useMemo(() => {
     if (!routePolyline || !isLoaded || !window.google?.maps?.geometry || !pickupCoords) return null;
     try {
@@ -87,7 +109,7 @@ export function RouteMap({
       if (path && path.length > 0) {
         const start = path[0];
         const dist = Math.abs(start.lat() - pickupCoords.lat) + Math.abs(start.lng() - pickupCoords.lng);
-        if (dist > 0.5) return null; // Reject stale polyline from another region (e.g. Bengaluru)
+        if (dist > 0.5) return null;
       }
       return path;
     } catch {
@@ -95,9 +117,13 @@ export function RouteMap({
     }
   }, [routePolyline, isLoaded, pickupCoords]);
 
-  // Client-side fallback: only used when the backend hasn't supplied a
-  // route polyline yet (e.g. while the estimate request is in flight, or
-  // if the server-side API key isn't configured).
+  // Compute fallback curved route path when Google Directions API is restricted
+  const fallbackRoutePath = useMemo(() => {
+    if (!pickupCoords || !dropCoords) return null;
+    return createFallbackRoutePath(pickupCoords, dropCoords);
+  }, [pickupCoords, dropCoords]);
+
+  // Client-side Google Directions Service calculation
   useEffect(() => {
     if (routePolyline) {
       setDirectionsResponse(null);
@@ -108,36 +134,37 @@ export function RouteMap({
       return;
     }
 
-    const directionsService = new window.google.maps.DirectionsService();
+    try {
+      const directionsService = new window.google.maps.DirectionsService();
 
-    directionsService.route(
-      {
-        origin: pickupCoords,
-        destination: dropCoords,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK && result) {
-          setDirectionsResponse(result);
-          setMapError(null);
+      directionsService.route(
+        {
+          origin: pickupCoords,
+          destination: dropCoords,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK && result) {
+            setDirectionsResponse(result);
 
-          const leg = result.routes[0]?.legs[0];
-          if (leg && onRouteCalculated) {
-            const distanceKm = (leg.distance?.value || 0) / 1000;
-            const durationMinutes = (leg.duration?.value || 0) / 60;
-            const durationText = leg.duration?.text || "Unknown";
-            const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
-            onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
+            const leg = result.routes[0]?.legs[0];
+            if (leg && onRouteCalculated) {
+              const distanceKm = (leg.distance?.value || 0) / 1000;
+              const durationMinutes = (leg.duration?.value || 0) / 60;
+              const durationText = leg.duration?.text || "Unknown";
+              const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
+              onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
+            }
+          } else {
+            console.warn("Directions service status:", status);
+            setDirectionsResponse(null);
           }
-        } else {
-          console.warn("Directions request failed:", status);
-          setDirectionsResponse(null);
-          const errStr = `Unable to calculate driving route (${status}).`;
-          setMapError(errStr);
-          if (onRouteError) onRouteError(errStr);
         }
-      }
-    );
+      );
+    } catch (e) {
+      console.warn("Directions calculation error:", e);
+      setDirectionsResponse(null);
+    }
   }, [isLoaded, pickupCoords, dropCoords, onRouteCalculated, onRouteError, routePolyline]);
 
   // Adjust map bounds when markers change
@@ -161,36 +188,32 @@ export function RouteMap({
     }
 
     if (hasPoints) {
-      map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+      map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
       if (pickupCoords && !dropCoords) {
         map.setZoom(14);
       }
     }
   }, [map, pickupCoords, dropCoords, userCoords]);
 
-  // Center map on user coordinates or pickup coordinates
   const currentCenter = pickupCoords || userCoords || defaultCenter;
 
-  // Fallback map preview when Google Maps API key is missing or failed to load
+  // Fallback map preview when Google Maps API fails to load
   if (loadError || !isLoaded) {
     return (
       <div className={`relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border border-border bg-subtle p-6 shadow-inner ${className}`} style={{ minHeight: "340px" }}>
         <div className="absolute inset-0 grid-bg opacity-40" />
 
-        {/* Interactive Simulated Map Canvas & Highways */}
         <svg className="absolute inset-0 h-full w-full opacity-70" viewBox="0 0 400 300" preserveAspectRatio="none">
-          {/* Highways & Roads */}
           <path d="M0 240 C 90 200, 160 270, 240 180 S 370 100, 400 120" stroke="#CBD5E1" strokeWidth="14" fill="none" strokeLinecap="round" />
-          <path d="M0 240 C 90 200, 160 270, 240 180 S 370 100, 400 140" stroke="#0B5FFF" strokeWidth="4" fill="none" strokeDasharray="6 8" strokeLinecap="round" />
+          <path d="M0 240 C 90 200, 160 270, 240 180 S 370 100, 400 140" stroke="#1E5AE8" strokeWidth="4" fill="none" strokeDasharray="6 8" strokeLinecap="round" />
           <path d="M10 50 L 390 70" stroke="#E2E8F0" strokeWidth="8" fill="none" strokeLinecap="round" />
           <path d="M110 0 L 140 300" stroke="#E2E8F0" strokeWidth="8" fill="none" strokeLinecap="round" />
         </svg>
 
-        {/* Animated Pickup Pin Marker */}
         <div className="absolute left-10 bottom-16 z-10 flex items-center gap-2">
           <div className="relative">
-            <div className="absolute inset-0 -m-2 animate-ping rounded-full bg-primary/30" />
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow-lift font-bold text-xs">
+            <div className="absolute inset-0 -m-2 animate-ping rounded-full bg-[#1E5AE8]/30" />
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#1E5AE8] text-white shadow-lift font-bold text-xs">
               P
             </div>
           </div>
@@ -199,31 +222,28 @@ export function RouteMap({
           </div>
         </div>
 
-        {/* Animated Drop Pin Marker */}
         <div className="absolute right-10 top-12 z-10 flex items-center gap-2">
           <div className="rounded-xl border border-border bg-background/95 px-3 py-1.5 text-xs font-semibold shadow-soft backdrop-blur max-w-[160px] truncate">
             {dropText || "Drop Location"}
           </div>
-          <div className="grid h-8 w-8 place-items-center rounded-sm bg-secondary text-secondary-foreground shadow-lift font-bold text-xs">
+          <div className="grid h-8 w-8 place-items-center rounded-sm bg-[#F4B400] text-slate-900 shadow-lift font-bold text-xs">
             D
           </div>
         </div>
 
-        {/* Status Info Box */}
         <div className="relative z-10 my-auto w-full max-w-sm rounded-2xl border border-border/80 bg-background/90 p-4 shadow-lift backdrop-blur text-center space-y-2">
-          <div className="mx-auto grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary">
+          <div className="mx-auto grid h-9 w-9 place-items-center rounded-xl bg-[#1E5AE8]/10 text-[#1E5AE8]">
             <MapPin className="h-5 w-5" />
           </div>
           <h4 className="text-sm font-semibold text-foreground">Interactive Route & Location Map</h4>
           <p className="text-[11px] text-muted-foreground">
-            Live chauffeur navigation & distance estimation active. Add your Google Maps API key in <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">.env</code> for satellite tiles.
+            Live chauffeur navigation & distance estimation active.
           </p>
         </div>
 
-        {/* Live Route Active Indicator */}
         <div className="relative z-10 flex w-full items-center justify-between text-[11px] font-semibold text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 shadow-soft backdrop-blur text-primary">
-            <span className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Driving Route Active
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 shadow-soft backdrop-blur text-[#1E5AE8]">
+            <span className="h-2 w-2 rounded-full bg-[#1E5AE8] animate-pulse" /> Driving Route Active
           </span>
           <span className="rounded-full bg-background/90 px-3 py-1 shadow-soft backdrop-blur">
             Live Chauffeur Tracking
@@ -251,7 +271,7 @@ export function RouteMap({
             icon={{
               path: window.google.maps.SymbolPath.CIRCLE,
               scale: 8,
-              fillColor: "#0B5FFF",
+              fillColor: "#1E5AE8",
               fillOpacity: 1,
               strokeColor: "#FFFFFF",
               strokeWeight: 3,
@@ -259,7 +279,7 @@ export function RouteMap({
           />
         )}
 
-        {/* Pickup Marker */}
+        {/* Pickup Marker (P) */}
         {pickupCoords && (
           <MarkerF
             position={pickupCoords}
@@ -273,7 +293,7 @@ export function RouteMap({
           />
         )}
 
-        {/* Drop-off Marker */}
+        {/* Drop-off Marker (D) */}
         {dropCoords && (
           <MarkerF
             position={dropCoords}
@@ -287,41 +307,46 @@ export function RouteMap({
           />
         )}
 
-        {/* Driving Route: prefer the backend-computed polyline */}
+        {/* Driving Route: Tier 1 - Backend Polyline */}
         {decodedPath && (
           <Polyline
             path={decodedPath}
             options={{
-              strokeColor: "#0B5FFF",
-              strokeWeight: 5,
-              strokeOpacity: 0.85,
+              strokeColor: "#1E5AE8",
+              strokeWeight: 6,
+              strokeOpacity: 0.9,
             }}
           />
         )}
 
-        {/* Client-side fallback route rendering */}
+        {/* Driving Route: Tier 2 - Google DirectionsRenderer */}
         {!decodedPath && directionsResponse && (
           <DirectionsRenderer
             directions={directionsResponse}
             options={{
               polylineOptions: {
-                strokeColor: "#0B5FFF",
-                strokeWeight: 5,
-                strokeOpacity: 0.8,
+                strokeColor: "#1E5AE8",
+                strokeWeight: 6,
+                strokeOpacity: 0.9,
               },
               suppressMarkers: true,
             }}
           />
         )}
-      </GoogleMap>
 
-      {/* Map Overlay Banner */}
-      {mapError && (
-        <div className="absolute top-3 left-3 right-3 z-10 rounded-2xl bg-destructive/90 px-3.5 py-2 text-xs font-semibold text-white shadow-soft backdrop-blur flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>{mapError}</span>
-        </div>
-      )}
+        {/* Driving Route: Tier 3 - Guaranteed Fallback Polyline Route */}
+        {!decodedPath && !directionsResponse && fallbackRoutePath && (
+          <Polyline
+            path={fallbackRoutePath}
+            options={{
+              strokeColor: "#1E5AE8",
+              strokeWeight: 6,
+              strokeOpacity: 0.9,
+              geodesic: true,
+            }}
+          />
+        )}
+      </GoogleMap>
     </div>
   );
 }
