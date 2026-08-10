@@ -22,6 +22,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { WhatsAppIcon, createWhatsAppSupportUrl } from "../components/ui/WhatsAppIcon";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -693,11 +694,12 @@ function FAQ() {
 
             <div className="pt-2">
               <a
-                href="https://wa.me/917306605416"
+                href={createWhatsAppSupportUrl({ pageName: "Home Page FAQ" })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white hover:border-[#1E5AE8] text-[#0B2D7A] hover:text-[#1E5AE8] px-7 py-3 text-xs font-bold transition-all duration-200 shadow-sm cursor-pointer"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full border border-slate-300 bg-white hover:border-[#25D366] hover:bg-[#25D366] text-[#0B2D7A] hover:text-white px-7 py-3 text-xs font-bold transition-all duration-300 shadow-sm hover:shadow-md active:scale-98 cursor-pointer group"
               >
+                <WhatsAppIcon className="h-4.5 w-4.5 text-[#25D366] group-hover:text-white transition-colors shrink-0" />
                 <span>Talk to our team</span>
               </a>
             </div>
