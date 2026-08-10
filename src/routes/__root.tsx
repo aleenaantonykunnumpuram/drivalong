@@ -55,7 +55,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Driv A Long Private Limited — Book a Professional Chauffeur in Minutes" },
       { name: "description", content: "Premium chauffeur booking by Driv A Long Private Limited for city rides, outstation, round trips and hourly rentals. Verified drivers, transparent pricing, real-time tracking." },
       { name: "author", content: "Driv A Long Private Limited" },
-      { name: "theme-color", content: "#0B5FFF" },
+      { name: "theme-color", content: "#1E5AE8" },
       { property: "og:title", content: "Driv A Long Private Limited — Professional Chauffeurs, On Demand" },
       { property: "og:description", content: "Book a verified chauffeur in minutes from Driv A Long Private Limited." },
       { property: "og:type", content: "website" },
