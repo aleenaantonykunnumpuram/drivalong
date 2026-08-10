@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAuthUser } from "@/lib/auth";
 import { getUserBookingsFn } from "@/lib/api/trip.functions";
 import { submitReview } from "@/lib/api/review.functions";
+import { downloadRideSummaryReceipt } from "@/lib/pdfUtils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -105,8 +106,23 @@ function CustomerDashboard() {
     toast.info(`Reschedule request initiated for ${id}. Select new time.`);
   };
 
-  const handleDownloadInvoice = (id: string) => {
-    toast.success(`Invoice for ${id} downloaded.`);
+  const handleDownloadInvoice = (b: BookingItem) => {
+    downloadRideSummaryReceipt({
+      bookingId: b.id,
+      serviceType: b.serviceType,
+      pickup: b.pickup,
+      destination: b.destination,
+      bookingDate: b.date,
+      bookingTime: b.time,
+      duration: b.duration,
+      estimatedFare: b.price,
+      driverName: b.driverName,
+      driverPhone: b.driverPhone,
+      status: b.status,
+      customerName: user?.name,
+      customerEmail: user?.email,
+    });
+    toast.success(`Ride Summary Receipt generated for ${b.id}`);
   };
 
   const handleSubmitReview = async () => {
@@ -324,7 +340,7 @@ function CustomerDashboard() {
                   </>
                 ) : (
                   <button
-                    onClick={() => handleDownloadInvoice(b.id)}
+                    onClick={() => handleDownloadInvoice(b)}
                     className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-border bg-subtle py-2 text-xs font-semibold text-foreground hover:bg-muted"
                   >
                     <Download className="h-3.5 w-3.5" /> Download Summary

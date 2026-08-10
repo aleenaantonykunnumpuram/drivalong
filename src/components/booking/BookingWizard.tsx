@@ -4,12 +4,15 @@ import {
   MapPin, Navigation, ArrowRight, ArrowLeft, Car, RouteIcon, Clock, Calendar,
   Users, Briefcase, Snowflake, Cog, CheckCircle2, CreditCard, Wallet, Banknote,
   Star, Phone, MessageSquare, Share2, Download, Home, Sparkles, Zap, Lock, ShieldCheck, Loader2, CheckSquare, Square, X,
-  Shield, UserCheck, Plane, Award, Building2, PartyPopper, Compass
+  Shield, UserCheck, Plane, Award, Building2, PartyPopper, Compass, FileText
 } from "lucide-react";
 import { GoogleMapComponent, type TripMetrics } from "./maps/GoogleMapComponent";
 import { formatCurrency, CHAUFFEUR_SERVICES, DURATION_HOURS, type ServiceType, type DurationOption } from "./maps/fareUtils";
 import { createBooking } from "@/lib/api/trip.functions";
 import { useAuthUser } from "@/lib/auth";
+import { downloadRideSummaryReceipt } from "@/lib/pdfUtils";
+import { WhatsAppIcon, createWhatsAppSupportUrl } from "@/components/ui/WhatsAppIcon";
+import { toast } from "sonner";
 
 type Transmission = "automatic" | "manual";
 type Timing = "now" | "later";
@@ -76,7 +79,7 @@ export function BookingWizard() {
           <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Chauffeur Rental · Your Driver, Your Car</span>
         </div>
         <h1 className="text-xl sm:text-2xl font-semibold tracking-tight md:text-3xl">
-          {s.step < 5 ? "Book a Professional Chauffeur" : "Chauffeur Booking Confirmed"}
+          {s.step < 5 ? "Book a Professional Chauffeur" : "Booking Submitted & Pending Approval"}
         </h1>
         <ProgressBar step={s.step} />
       </div>
@@ -151,21 +154,9 @@ function StepSelectService({ s, set, onNext }: { s: State; set: <K extends keyof
                 <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{service.description}</p>
               </div>
 
-              <div className="mt-5 border-t border-border/60 pt-3 flex items-center justify-between">
-                <span className="text-xs font-bold text-primary">From ₹{service.baseFare}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    set("serviceType", key);
-                    onNext();
-                  }}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
-                    isSelected ? "bg-primary text-primary-foreground" : "bg-subtle text-foreground hover:bg-primary hover:text-primary-foreground"
-                  }`}
-                >
-                  Book Now
-                </button>
+              <div className="mt-4 border-t border-border/60 pt-3 flex items-center justify-between text-xs font-semibold">
+                <span className="text-primary">₹{service.baseFare} Base</span>
+                <span className="text-muted-foreground">+₹{service.ratePerHour}/hr</span>
               </div>
             </div>
           );
@@ -175,82 +166,67 @@ function StepSelectService({ s, set, onNext }: { s: State; set: <K extends keyof
       <div className="flex justify-end pt-4">
         <button
           onClick={onNext}
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110 active:scale-98"
         >
-          Continue to Pickup Location <ArrowRight className="h-4 w-4" />
+          <span>Continue to Pickup Location</span>
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 }
 
-/* ------------------------ Step 2 · Pickup Location ------------------------ */
+/* ------------------------ Step 2 · Pickup & Drop Location ------------------------ */
 
 function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
+  const handleLocationsChanged = (pickupAddr: string, dropAddr: string, pCoords: any, dCoords: any, metrics: TripMetrics | null) => {
+    set("pickup", pickupAddr);
+    set("drop", dropAddr);
+    set("pickupCoords", pCoords);
+    set("dropCoords", dCoords);
+    set("tripMetrics", metrics);
+  };
+
   return (
     <div className="animate-rise space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold">Pickup & Destination Details</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">Enter your pickup location. Destination is optional for hourly bookings.</p>
+      </div>
+
       <GoogleMapComponent
-        pickup={s.pickup}
-        drop={s.drop}
         serviceType={s.serviceType}
         duration={s.duration}
-        onPickupChange={(v, coords) => {
-          set("pickup", v);
-          if (coords) set("pickupCoords", coords);
-        }}
-        onDropChange={(v, coords) => {
-          set("drop", v);
-          if (coords) set("dropCoords", coords);
-        }}
-        onMetricsCalculated={(metrics) => set("tripMetrics", metrics)}
+        onLocationsChanged={handleLocationsChanged}
       />
 
-      <div className="flex items-center justify-between pt-2">
-        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
+        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border px-5 py-2.5 text-xs font-semibold hover:bg-muted">
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <button
-          onClick={onNext}
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
+          onClick={() => {
+            if (!s.pickup) {
+              toast.error("Please enter a pickup address to continue.");
+              return;
+            }
+            onNext();
+          }}
+          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-7 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110 active:scale-98"
         >
-          Continue <ArrowRight className="h-4 w-4" />
+          <span>Continue to Schedule</span>
+          <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 }
 
-/* ------------------------ Step 3 · Schedule & Transmission ------------------------ */
+/* ------------------------ Step 3 · Schedule & Vehicle Specs ------------------------ */
 
 function StepSchedule({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
   return (
     <div className="animate-rise space-y-6 max-w-2xl mx-auto">
-      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-5">
-        <div>
-          <h3 className="text-lg font-semibold">Transmission & Booking Time</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Specify your car's transmission type so we assign a qualified driver.</p>
-        </div>
-
-        {/* Transmission Selection */}
-        <div>
-          <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your Vehicle Transmission</label>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {(["automatic", "manual"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => set("transmission", t)}
-                className={`rounded-2xl border-2 p-4 text-left transition ${
-                  s.transmission === t ? "border-primary bg-primary/5 shadow-soft" : "border-border bg-background hover:border-primary/50"
-                }`}
-              >
-                <div className="flex items-center gap-2 text-sm font-semibold capitalize">
-                  <Cog className={`h-4 w-4 ${s.transmission === t ? "text-primary" : "text-muted-foreground"}`} />
-                  {t} Transmission
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t === "automatic" ? "Automated / AMT / Dual Clutch" : "Manual 5/6 Speed Stick Shift"}
-                </p>
               </button>
             ))}
           </div>
@@ -754,90 +730,145 @@ function StepConfirmation({ s }: { s: State }) {
     };
   }, []);
 
+  const handleDownloadReceipt = () => {
+    downloadRideSummaryReceipt({
+      bookingId,
+      serviceType: s.serviceType,
+      pickup: s.pickup || "Pickup Location",
+      destination: s.drop || "Flexible / Hourly Route",
+      bookingDate: s.timing === "now" ? "Immediate Dispatch" : s.date,
+      bookingTime: s.timing === "now" ? "Now" : s.time,
+      duration: s.duration,
+      transmission: s.transmission,
+      estimatedFare: s.tripMetrics ? s.tripMetrics.fare.totalFare : 797,
+      driverName: "Rajesh Kumar (Pending WhatsApp Approval)",
+      status: "Pending Admin Approval via WhatsApp (+91 7306605416)",
+      customerName: user?.name || "Verified Customer",
+      customerEmail: user?.email || "",
+    });
+    toast.success(`Ride Summary Receipt generated for ${bookingId}`);
+  };
+
+  const whatsappMessage = `Hello Driv A Long Team,\n\nI have submitted a booking request on your website and would like confirmation & payment details.\n\n*Booking ID:* ${bookingId}\n*Service:* ${s.serviceType}\n*Pickup:* ${s.pickup || "Pickup Location"}\n*Duration:* ${s.duration}\n\nPlease assist me with approval. Thank you!`;
+  const whatsappUrl = `https://wa.me/917306605416?text=${encodeURIComponent(whatsappMessage)}`;
+
   return (
-    <div className="animate-rise">
-      <div className="flex flex-col items-center text-center">
+    <div className="animate-rise space-y-8">
+      {/* Header & Status Banner */}
+      <div className="flex flex-col items-center text-center space-y-3">
         <div className="relative">
-          <div className="absolute inset-0 -m-6 animate-ping-slow rounded-full bg-primary/30" />
-          <div className="animate-check-pop grid h-20 w-20 place-items-center rounded-full bg-primary text-primary-foreground shadow-lift">
-            <CheckCircle2 className="h-10 w-10" strokeWidth={2.4} />
+          <div className="absolute inset-0 -m-5 animate-ping-slow rounded-full bg-amber-500/20" />
+          <div className="animate-check-pop grid h-20 w-20 place-items-center rounded-full bg-[#0B2D7A] text-[#F4B400] shadow-lift">
+            <Clock className="h-10 w-10" strokeWidth={2.4} />
           </div>
         </div>
-        <h2 className="mt-6 text-3xl font-semibold tracking-tight">Chauffeur Driver Assigned</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Booking ID · <span className="font-semibold text-foreground">{bookingId}</span></p>
+
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+            🟡 Booking Submitted & Pending Approval
+          </span>
+          <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            Driver Assigned — Confirmation via WhatsApp
+          </h2>
+          <p className="mt-1 text-sm font-mono font-bold text-primary">
+            Booking ID · {bookingId}
+          </p>
+        </div>
+
+        {/* WhatsApp Manual Payment Notice Box */}
+        <div className="max-w-2xl rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-xs sm:text-sm text-blue-950 dark:text-blue-200 leading-relaxed font-medium text-center space-y-1">
+          <p className="font-bold text-blue-900 dark:text-blue-100">
+            📲 WhatsApp Payment & Confirmation Workflow:
+          </p>
+          <p>
+            Our team is reviewing your booking. The admin/owner will confirm your booking and send payment details directly to you on WhatsApp (<strong className="text-primary">+91 7306605416</strong>) shortly.
+          </p>
+        </div>
       </div>
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-5">
+      <div className="grid gap-5 lg:grid-cols-5">
         {/* Driver Details Card */}
-        <div className="lg:col-span-2 rounded-3xl border border-border bg-background p-6 shadow-soft">
-          <div className="flex items-center gap-4">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-lg font-semibold text-primary">RK</div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold">Rajesh Kumar</h3>
-              <p className="text-xs text-primary font-medium">Professional Chauffeur</p>
-              <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
-                <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" /> Background Verified Chauffeur
+        <div className="lg:col-span-2 rounded-3xl border border-border bg-background p-6 shadow-soft flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="grid h-16 w-16 place-items-center rounded-full bg-[#0B2D7A] text-lg font-bold text-white shadow-md">
+                RK
               </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-foreground">Rajesh Kumar</h3>
+                <p className="text-xs text-primary font-bold">Professional Chauffeur</p>
+                <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Background Verified Chauffeur
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs border-t border-border pt-4">
+              <Meta k="Service Type" v={s.serviceType} />
+              <Meta k="Duration" v={s.duration} />
+              <Meta k="Driver Status" v="Pending Admin Approval" />
+              <Meta k="WhatsApp Support" v="+91 7306605416" />
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <Meta k="Service Type" v={s.serviceType} />
-            <Meta k="Duration" v={s.duration} />
-            <Meta k="Driver Status" v="En Route to Pickup" />
-            <Meta k="Phone" v="+91 98765 43210" />
-          </div>
-
-          <div className="mt-5 grid grid-cols-4 gap-2">
-            {[
-              { i: Phone, l: "Call" },
-              { i: MessageSquare, l: "Chat" },
-              { i: Share2, l: "Share" },
-              { i: Download, l: "Invoice" },
-            ].map((a, i) => (
-              <button key={i} className="flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-background py-3 text-[11px] font-semibold text-muted-foreground transition hover:border-primary hover:text-primary">
-                <a.i className="h-4 w-4" /> {a.l}
-              </button>
-            ))}
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 py-3 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition cursor-pointer"
+            >
+              <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Chat on WhatsApp
+            </a>
+            <button
+              onClick={handleDownloadReceipt}
+              className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-subtle hover:bg-muted py-3 text-xs font-bold text-foreground transition cursor-pointer"
+            >
+              <FileText className="h-4 w-4 text-primary" /> Download Summary
+            </button>
           </div>
         </div>
 
-        {/* Live Trip Info */}
+        {/* Booking Details Card */}
         <div className="lg:col-span-3 overflow-hidden rounded-3xl border border-border bg-subtle shadow-soft flex flex-col justify-between">
           <div className="p-6 space-y-4">
-            <h3 className="text-lg font-semibold border-b border-border pb-3">Booking Confirmation Details</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-foreground">Booking Details</h3>
+              <span className="text-xs font-semibold text-muted-foreground">Manual WhatsApp Confirmation</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 text-xs">
               <div>
-                <span className="text-xs text-muted-foreground">Pickup Address</span>
-                <p className="font-medium text-foreground">{s.pickup || "Pickup Location"}</p>
+                <span className="text-muted-foreground uppercase text-[10px] font-bold">Pickup Address</span>
+                <p className="font-semibold text-foreground mt-0.5">{s.pickup || "Pickup Location"}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Destination</span>
-                <p className="font-medium text-foreground">{s.drop || "Flexible / Hourly Route"}</p>
+                <span className="text-muted-foreground uppercase text-[10px] font-bold">Destination</span>
+                <p className="font-semibold text-foreground mt-0.5">{s.drop || "Flexible / Hourly Route"}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Booking Date & Time</span>
-                <p className="font-medium text-foreground">{s.timing === "now" ? "Immediate" : `${s.date} at ${s.time}`}</p>
+                <span className="text-muted-foreground uppercase text-[10px] font-bold">Scheduled Date & Time</span>
+                <p className="font-semibold text-foreground mt-0.5">{s.timing === "now" ? "Immediate Dispatch" : `${s.date} at ${s.time}`}</p>
               </div>
               <div>
-                <span className="text-xs text-muted-foreground">Transmission</span>
-                <p className="font-medium text-foreground capitalize">{s.transmission} Transmission</p>
+                <span className="text-muted-foreground uppercase text-[10px] font-bold">Transmission</span>
+                <p className="font-semibold text-foreground capitalize mt-0.5">{s.transmission} Transmission</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background text-center text-sm">
+          <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background text-center text-xs">
             <div className="p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Service</div>
-              <div className="mt-1 font-semibold truncate">{s.serviceType}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Service</div>
+              <div className="mt-1 font-bold truncate text-foreground">{s.serviceType}</div>
             </div>
             <div className="p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</div>
-              <div className="mt-1 font-semibold">{s.duration}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Duration</div>
+              <div className="mt-1 font-bold text-foreground">{s.duration}</div>
             </div>
             <div className="p-4">
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Estimated Fare</div>
-              <div className="mt-1 font-semibold text-primary">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Estimated Fare</div>
+              <div className="mt-1 font-extrabold text-primary">
                 {s.tripMetrics ? formatCurrency(s.tripMetrics.fare.totalFare) : "₹797"}
               </div>
             </div>
@@ -845,11 +876,35 @@ function StepConfirmation({ s }: { s: State }) {
         </div>
       </div>
 
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110">
+      {/* Primary Action Buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-2.5 rounded-full bg-[#1E5AE8] hover:bg-[#1546bd] text-white px-7 py-3.5 text-xs sm:text-sm font-bold shadow-lift hover:shadow-xl transition-all cursor-pointer"
+        >
           <Navigation className="h-4 w-4" /> Go to Customer Dashboard
         </Link>
-        <Link to="/" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
+
+        <button
+          onClick={handleDownloadReceipt}
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background hover:bg-muted px-6 py-3.5 text-xs sm:text-sm font-bold text-foreground shadow-soft transition cursor-pointer"
+        >
+          <Download className="h-4 w-4 text-primary" /> Download Ride Summary
+        </button>
+
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 px-6 py-3.5 text-xs sm:text-sm font-bold shadow-soft transition cursor-pointer"
+        >
+          <WhatsAppIcon className="h-4 w-4 text-[#25D366]" /> Chat with Admin on WhatsApp
+        </a>
+
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background hover:bg-muted px-6 py-3.5 text-xs sm:text-sm font-semibold text-muted-foreground transition"
+        >
           <Home className="h-4 w-4" /> Back Home
         </Link>
       </div>
