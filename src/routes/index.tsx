@@ -17,6 +17,8 @@ import {
   PartyPopper,
   Plane,
   Compass,
+  Phone,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -51,6 +53,7 @@ function HomePage() {
   return (
     <div ref={ref} className="space-y-16 md:space-y-24">
       <Hero />
+      <QuickBookSection />
       <WhyChooseUs />
       <Services />
       <HowItWorks />
@@ -64,63 +67,91 @@ function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden pt-6 pb-12 md:pt-12 md:pb-20">
-      <div className="absolute inset-0 -z-10 grid-bg opacity-70" />
-      <div className="absolute -top-32 right-0 -z-10 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 -z-10 h-[400px] w-[400px] rounded-full bg-secondary/15 blur-3xl pointer-events-none" />
-
+    <section className="relative overflow-hidden pt-6 pb-12 md:pt-10 md:pb-16">
       <div className="container-px mx-auto grid max-w-7xl gap-10 lg:grid-cols-12 lg:gap-12 items-center">
-        <div className="lg:col-span-7 space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/80 px-3.5 py-1.5 text-xs font-semibold text-foreground shadow-soft backdrop-blur-md">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
-            <span>Your Driver, Your Car · Verified Chauffeurs On Demand</span>
+        {/* Left Column matching screenshot */}
+        <div className="lg:col-span-6 space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-subtle px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-secondary" />
+            <span>YOUR DRIVER · YOUR CAR</span>
           </div>
 
-          <h1 className="text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl text-foreground">
-            Hire a Professional <br className="hidden sm:inline" />
-            <span className="text-gradient-primary">Chauffeur for Your Car.</span>
+          <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl text-foreground">
+            Professional <br />
+            chauffeurs <br />
+            <span className="text-primary">for the car you</span> <br />
+            already own.
           </h1>
 
-          <p className="max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            Book background-verified, experienced chauffeurs to drive your personal or corporate vehicle. Flexible hourly rentals, outstation trips, airport pickups, and event drivers — anytime, anywhere.
+          <p className="max-w-xl text-xs leading-relaxed text-muted-foreground md:text-sm font-medium">
+            Driv A Long provides background-verified, trained chauffeurs who drive your personal or corporate vehicle — hourly rentals, airport transfers, outstation journeys and event duty, booked in under a minute.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3.5 pt-2">
+          <div className="flex flex-wrap items-center gap-3.5 pt-1">
             <Link
               to="/book"
-              className="group inline-flex items-center gap-2.5 rounded-2xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-soft transition-all duration-200 hover:brightness-110 active:scale-98"
+              className="group inline-flex items-center gap-2.5 rounded-2xl bg-primary px-6 py-3.5 text-xs font-bold text-primary-foreground shadow-lift transition-all duration-200 hover:brightness-110 active:scale-98"
             >
-              <span>Book Experienced Chauffeur</span>
+              <span>Book a Chauffeur</span>
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
             </Link>
-            <Link
-              to="/how-it-works"
-              className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background/80 px-6 py-3.5 text-sm font-semibold text-foreground transition-all duration-200 hover:bg-muted hover:border-border/80"
+            <a
+              href="tel:+917306605416"
+              className="inline-flex items-center gap-2 rounded-2xl border border-border/90 bg-background px-5 py-3.5 text-xs font-bold text-foreground transition-all duration-200 hover:border-primary/50 hover:text-primary shadow-soft"
             >
-              <span>How It Works</span>
-            </Link>
+              <Phone className="h-4 w-4 text-primary" />
+              <span>+91 7306605416</span>
+            </a>
           </div>
 
-          <div className="grid max-w-lg grid-cols-3 gap-3 pt-4 border-t border-border/60">
-            {[
-              { k: "100%", v: "Background Verified" },
-              { k: "24/7", v: "Available On-Demand" },
-              { k: "Safe", v: "Reliable Service" },
-            ].map((s) => (
-              <div key={s.v} className="rounded-2xl border border-border/70 bg-background/60 p-3.5 backdrop-blur-sm">
-                <div className="text-xl font-bold tracking-tight text-primary">{s.k}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 font-medium">{s.v}</div>
+          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border/60">
+            <div>
+              <div className="text-sm font-bold tracking-tight text-foreground">Verified</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 font-medium">Police-checked chauffeurs</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold tracking-tight text-foreground">24 / 7</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 font-medium">On-demand dispatch</div>
+            </div>
+            <div>
+              <div className="text-sm font-bold tracking-tight text-foreground">Fixed</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5 font-medium">Transparent pricing</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column with Chauffeur Image & Floating Verification Badge */}
+        <div className="relative lg:col-span-6">
+          <div className="relative overflow-hidden rounded-[32px] border border-border/80 bg-background shadow-lift group">
+            <img
+              src="/hero-chauffeur.jpg"
+              alt="Professional Driv A Long Chauffeur opening luxury car door"
+              className="w-full h-[480px] sm:h-[540px] md:h-[580px] object-cover object-center transition-transform duration-700 group-hover:scale-103"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+
+            {/* Floating Glassmorphic Overlay Badge */}
+            <div className="absolute bottom-5 left-5 right-5 sm:left-8 sm:right-8 rounded-2xl border border-white/40 bg-white/90 p-4 backdrop-blur-xl shadow-lift flex items-center gap-3.5">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <ShieldCheck className="h-5 w-5" />
               </div>
-            ))}
+              <div>
+                <div className="text-xs font-bold text-slate-900">Every chauffeur verified</div>
+                <div className="text-[11px] text-slate-600 font-medium">Identity, licence & background checked</div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <div className="relative lg:col-span-5">
-          <QuickBook />
-        </div>
+function QuickBookSection() {
+  return (
+    <section className="py-4">
+      <div className="container-px mx-auto max-w-4xl">
+        <QuickBook />
       </div>
     </section>
   );
