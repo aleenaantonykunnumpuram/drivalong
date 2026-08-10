@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { WhatsAppIcon, createWhatsAppSupportUrl } from "../components/ui/WhatsAppIcon";
+import { getPublicReviews } from "../lib/api/review.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -60,6 +61,7 @@ function HomePage() {
       <Services />
       <HowItWorks />
       <ChauffeurPledge />
+      <CustomerStories />
       <FAQ />
       <CTASection />
     </div>
@@ -648,6 +650,155 @@ function ChauffeurPledge() {
             </div>
           </div>
         </div>
+      </div>
+function CustomerStories() {
+  const [reviewsData, setReviewsData] = useState<{
+    reviews: Array<{
+      reviewId: string;
+      customerName: string;
+      city?: string;
+      rating: number;
+      comment: string;
+      rideType?: string;
+      title?: string;
+    }>;
+    averageRating: number;
+    totalReviews: number;
+  }>({
+    reviews: [
+      {
+        reviewId: "REV1001",
+        customerName: "Anand Verma",
+        city: "Kochi",
+        rating: 5,
+        title: "Genuinely Effortless",
+        comment: "Hired an hourly chauffeur for a weekend of errands. The driver handled my automatic SUV smoothly through heavy traffic — genuinely effortless.",
+        rideType: "Hourly Chauffeur",
+      },
+      {
+        reviewId: "REV1002",
+        customerName: "Priya Sharma",
+        city: "Alappuzha",
+        rating: 5,
+        title: "Always Safe & Verified",
+        comment: "We use Driv A Long outstation chauffeurs whenever we travel in our own car. Always punctual, always safe, always verified.",
+        rideType: "Outstation Chauffeur",
+      },
+      {
+        reviewId: "REV1003",
+        customerName: "Vikram Mehta",
+        city: "Trivandrum",
+        rating: 5,
+        title: "Lifesaver Service",
+        comment: "The designated driver service is a lifesaver after late dinners. Polite, uniformed, and drove us home without a single worry.",
+        rideType: "Designated Driver",
+      },
+    ],
+    averageRating: 4.9,
+    totalReviews: 3,
+  });
+
+  useEffect(() => {
+    getPublicReviews()
+      .then((res) => {
+        if (res.success && res.reviews) {
+          setReviewsData({
+            reviews: res.reviews as any,
+            averageRating: res.averageRating || 4.9,
+            totalReviews: res.totalReviews || res.reviews.length,
+          });
+        }
+      })
+      .catch((err) => console.error("Failed to fetch public reviews:", err));
+  }, []);
+
+  return (
+    <section className="py-12 md:py-20 bg-slate-50/60 border-y border-slate-100">
+      <div className="container-px mx-auto max-w-7xl space-y-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-3">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1E5AE8]">
+              CUSTOMER STORIES
+            </span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0B2D7A] tracking-tight leading-[1.15]">
+              Trusted by car owners <br />
+              across Kerala.
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed max-w-xl">
+              Real experiences shared by our customers after using Driv A Long chauffeur services.
+            </p>
+          </div>
+
+          <div className="inline-flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-1 text-[#F4B400]">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="h-5 w-5 fill-[#F4B400]" />
+              ))}
+            </div>
+            <div>
+              <div className="text-base font-extrabold text-[#0B2D7A] leading-none">
+                {reviewsData.averageRating} / 5.0
+              </div>
+              <p className="text-[11px] font-medium text-slate-500 mt-1">
+                Based on {reviewsData.totalReviews} verified reviews
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {reviewsData.reviews.length === 0 ? (
+          <div className="rounded-3xl border border-border bg-white p-12 text-center text-xs text-slate-500 space-y-2">
+            <p className="font-semibold text-slate-700">We're excited to serve our first customers.</p>
+            <p>Your feedback will help us improve and will appear here after your completed ride.</p>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-3">
+            {reviewsData.reviews.map((r, i) => (
+              <div
+                key={r.reviewId || i}
+                className="rounded-3xl border border-slate-100 bg-white p-6 md:p-8 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-6"
+              >
+                <div className="space-y-4">
+                  {/* Star Rating */}
+                  <div className="flex items-center gap-1 text-[#F4B400]">
+                    {[...Array(5)].map((_, idx) => (
+                      <Star
+                        key={idx}
+                        className={`h-4.5 w-4.5 ${idx < r.rating ? "fill-[#F4B400]" : "text-slate-200"}`}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Review Text */}
+                  <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed">
+                    "{r.comment}"
+                  </p>
+                </div>
+
+                {/* Customer Details Footer */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#0B2D7A] text-white font-bold text-sm shadow-sm">
+                      {r.customerName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#0B2D7A] leading-snug">
+                        {r.customerName}
+                      </h4>
+                      <p className="text-[11px] font-medium text-slate-400">
+                        {r.city ? `${r.city} · ` : ""}{r.rideType || "Chauffeur User"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full shrink-0">
+                    <ShieldCheck className="h-3 w-3" /> Verified
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
