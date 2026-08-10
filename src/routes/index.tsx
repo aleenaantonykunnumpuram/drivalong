@@ -334,16 +334,22 @@ function TrustBanner() {
   ];
 
   return (
-    <div className="mt-10 border-y border-slate-200/70 bg-slate-50/80 py-3.5 overflow-hidden">
-      <div className="container-px mx-auto max-w-7xl">
-        <div className="flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-slate-600">
-          {items.map((item, i) => (
-            <div key={i} className="inline-flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-[#F4B400] shrink-0" />
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
+    <div className="group relative mt-10 w-full overflow-hidden border-y border-slate-200/80 bg-white py-4 shadow-sm select-none">
+      {/* Subtle Side Fade Gradients */}
+      <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 w-16 bg-gradient-to-r from-white to-transparent md:w-28" />
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 w-16 bg-gradient-to-l from-white to-transparent md:w-28" />
+
+      {/* Infinite Auto-Scrolling Track */}
+      <div className="flex w-max items-center animate-marquee">
+        {[...items, ...items].map((item, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2.5 px-6 sm:px-10 text-xs sm:text-sm font-semibold text-slate-700 whitespace-nowrap transition-colors duration-200 hover:text-[#1E5AE8]"
+          >
+            <CheckCircle2 className="h-4 w-4 text-[#F4B400] shrink-0" />
+            <span>{item}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
