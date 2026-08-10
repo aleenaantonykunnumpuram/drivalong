@@ -744,7 +744,7 @@ function FAQ() {
 function CTASection() {
   return (
     <section className="py-10 md:py-16">
-      <div className="container-px mx-auto max-w-6xl">
+      <div className="container-px mx-auto max-w-[1340px]">
         <div className="relative rounded-[28px] sm:rounded-[32px] overflow-hidden bg-[#030E30] shadow-[0_20px_50px_-10px_rgba(3,14,48,0.35)] border border-[#0F2B70]">
           {/* Highway Night Image Background */}
           <div
