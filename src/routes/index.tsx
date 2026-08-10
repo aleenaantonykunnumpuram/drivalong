@@ -651,6 +651,10 @@ function ChauffeurPledge() {
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
 function CustomerStories() {
   const [reviewsData, setReviewsData] = useState<{
     reviews: Array<{
