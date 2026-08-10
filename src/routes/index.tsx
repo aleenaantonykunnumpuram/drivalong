@@ -743,9 +743,9 @@ function FAQ() {
 
 function CTASection() {
   return (
-    <section className="py-12 md:py-20">
-      <div className="container-px mx-auto max-w-7xl">
-        <div className="relative rounded-[28px] sm:rounded-[36px] overflow-hidden bg-[#030E30] shadow-[0_25px_60px_-15px_rgba(3,14,48,0.4)] border border-[#0F2B70]">
+    <section className="py-10 md:py-16">
+      <div className="container-px mx-auto max-w-6xl">
+        <div className="relative rounded-[28px] sm:rounded-[32px] overflow-hidden bg-[#030E30] shadow-[0_20px_50px_-10px_rgba(3,14,48,0.35)] border border-[#0F2B70]">
           {/* Highway Night Image Background */}
           <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 mix-blend-luminosity scale-105 transition-transform duration-1000 hover:scale-100"
@@ -756,30 +756,30 @@ function CTASection() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#030E30] via-[#051747]/95 to-[#051747]/60" />
 
           {/* Glowing Ambient Light Orbs */}
-          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#1E5AE8]/20 blur-3xl pointer-events-none" />
-          <div className="absolute left-1/3 bottom-0 h-60 w-60 rounded-full bg-[#F4B400]/10 blur-3xl pointer-events-none" />
+          <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-[#1E5AE8]/20 blur-3xl pointer-events-none" />
+          <div className="absolute left-1/3 bottom-0 h-52 w-52 rounded-full bg-[#F4B400]/10 blur-3xl pointer-events-none" />
 
           {/* Content Wrapper */}
-          <div className="relative z-10 p-8 sm:p-12 md:p-16 lg:p-20 max-w-3xl space-y-6">
+          <div className="relative z-10 p-6 sm:p-10 md:p-12 lg:p-14 max-w-2xl space-y-5">
             <div>
-              <span className="inline-flex items-center rounded-full border border-[#F4B400]/40 bg-[#F4B400]/10 px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-[#F4B400]">
+              <span className="inline-flex items-center rounded-full border border-[#F4B400]/40 bg-[#F4B400]/10 px-3.5 py-1 text-[10px] sm:text-[11px] font-extrabold uppercase tracking-widest text-[#F4B400]">
                 READY WHEN YOU ARE
               </span>
             </div>
 
-            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.1]">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[42px] font-extrabold text-white tracking-tight leading-[1.15]">
               Your car. Our chauffeur. <br className="hidden sm:inline" />
               Every journey handled.
             </h2>
 
-            <p className="text-xs sm:text-sm md:text-base text-slate-300 font-medium max-w-xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-300 font-medium max-w-md leading-relaxed">
               Book a background-verified professional driver in under a minute — for tonight, tomorrow, or the whole week.
             </p>
 
-            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
+            <div className="pt-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <Link
                 to="/book"
-                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#F4B400] hover:bg-[#E5A800] text-slate-950 px-7 py-3.5 text-xs sm:text-sm font-extrabold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 cursor-pointer group"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#F4B400] hover:bg-[#E5A800] text-slate-950 px-6 py-3 text-xs sm:text-sm font-extrabold shadow-md hover:shadow-lg transition-all duration-200 active:scale-98 cursor-pointer group"
               >
                 <span>Book a chauffeur</span>
                 <ArrowRight className="h-4 w-4 text-slate-950 transition-transform duration-200 group-hover:translate-x-1" />
@@ -787,7 +787,7 @@ function CTASection() {
 
               <Link
                 to="/services"
-                className="inline-flex items-center justify-center rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-white px-7 py-3.5 text-xs sm:text-sm font-semibold transition-all duration-200 backdrop-blur-md active:scale-98 cursor-pointer"
+                className="inline-flex items-center justify-center rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-white px-6 py-3 text-xs sm:text-sm font-semibold transition-all duration-200 backdrop-blur-md active:scale-98 cursor-pointer"
               >
                 <span>Explore services</span>
               </Link>
