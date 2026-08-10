@@ -29,13 +29,14 @@ export interface TripMetrics {
 }
 
 interface GoogleMapComponentProps {
-  pickup: string;
+  pickup?: string;
   drop?: string;
   serviceType?: string;
   duration?: string;
   vehicleType?: string;
-  onPickupChange: (val: string, coords?: Coords, verified?: boolean) => void;
-  onDropChange: (val: string, coords?: Coords, verified?: boolean) => void;
+  onPickupChange?: (val: string, coords?: Coords, verified?: boolean) => void;
+  onDropChange?: (val: string, coords?: Coords, verified?: boolean) => void;
+  onLocationsChanged?: (pickupAddr: string, dropAddr: string, pCoords: any, dCoords: any, metrics: TripMetrics | null) => void;
   onMetricsCalculated?: (metrics: TripMetrics) => void;
   className?: string;
 }
@@ -43,12 +44,13 @@ interface GoogleMapComponentProps {
 const libraries: Libraries = ["places", "geometry"];
 
 export function GoogleMapComponent({
-  pickup,
+  pickup = "",
   drop = "",
   serviceType = "Hourly Chauffeur",
   duration = "4 Hours",
   onPickupChange,
   onDropChange,
+  onLocationsChanged,
   onMetricsCalculated,
   className = "",
 }: GoogleMapComponentProps) {
@@ -87,10 +89,43 @@ export function GoogleMapComponent({
 
   const requestSeq = useRef(0);
   const onMetricsCalculatedRef = useRef(onMetricsCalculated);
+  const onLocationsChangedRef = useRef(onLocationsChanged);
 
   useEffect(() => {
     onMetricsCalculatedRef.current = onMetricsCalculated;
   }, [onMetricsCalculated]);
+
+  useEffect(() => {
+    onLocationsChangedRef.current = onLocationsChanged;
+  }, [onLocationsChanged]);
+
+  const handlePickupChange = useCallback(
+    (val: string, coords?: Coords, verified?: boolean) => {
+      if (coords) {
+        setPickupCoords(coords);
+        setPickupVerified(Boolean(verified));
+      }
+      if (onPickupChange) onPickupChange(val, coords, verified);
+      if (onLocationsChangedRef.current) {
+        onLocationsChangedRef.current(val, drop, coords || pickupCoords, dropCoords, metrics);
+      }
+    },
+    [onPickupChange, drop, pickupCoords, dropCoords, metrics]
+  );
+
+  const handleDropChange = useCallback(
+    (val: string, coords?: Coords, verified?: boolean) => {
+      if (coords) {
+        setDropCoords(coords);
+        setDropVerified(Boolean(verified));
+      }
+      if (onDropChange) onDropChange(val, coords, verified);
+      if (onLocationsChangedRef.current) {
+        onLocationsChangedRef.current(pickup, val, pickupCoords, coords || dropCoords, metrics);
+      }
+    },
+    [onDropChange, pickup, pickupCoords, dropCoords, metrics]
+  );
 
   // Helper to atomically set metrics and trigger callback
   const applyMetrics = useCallback((newMetrics: TripMetrics | null) => {
@@ -125,13 +160,29 @@ export function GoogleMapComponent({
           const geocoder = new window.google.maps.Geocoder();
           geocoder.geocode({ location: coords }, (results, status) => {
             if (status === "OK" && results && results[0]) {
-              onPickupChange(results[0].formatted_address, coords, true);
+              handlePickupChange(results[0].formatted_address, coords, true);
             } else {
-              onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
+              fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`)
+                .then((r) => r.json())
+                .then((data) => {
+                  const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+                  handlePickupChange(addr, coords, true);
+                })
+                .catch(() => {
+                  handlePickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
+                });
             }
           });
         } else {
-          onPickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`)
+            .then((r) => r.json())
+            .then((data) => {
+              const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+              handlePickupChange(addr, coords, true);
+            })
+            .catch(() => {
+              handlePickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
+            });
         }
       },
       (error) => {
@@ -143,9 +194,9 @@ export function GoogleMapComponent({
           setErrorMsg("Could not retrieve your current location. Please search for an address.");
         }
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 12000, enableHighAccuracy: true }
     );
-  }, [onPickupChange]);
+  }, [handlePickupChange]);
 
   // Trigger Geolocation detection on mount
   useEffect(() => {
@@ -309,14 +360,10 @@ export function GoogleMapComponent({
             pickupVerified={pickupVerified}
             dropVerified={dropVerified}
             onPickupChange={(val, coords, verified) => {
-              setPickupVerified(Boolean(verified));
-              if (coords) setPickupCoords(coords);
-              onPickupChange(val, coords, verified);
+              handlePickupChange(val, coords, verified);
             }}
             onDropChange={(val, coords, verified) => {
-              setDropVerified(Boolean(verified));
-              if (coords) setDropCoords(coords);
-              onDropChange(val, coords, verified);
+              handleDropChange(val, coords, verified);
             }}
             onUseCurrentLocation={detectUserLocation}
             locatingUser={locatingUser}

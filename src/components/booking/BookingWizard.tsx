@@ -195,9 +195,20 @@ function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyo
       </div>
 
       <GoogleMapComponent
+        pickup={s.pickup}
+        drop={s.drop}
         serviceType={s.serviceType}
         duration={s.duration}
+        onPickupChange={(val, coords) => {
+          set("pickup", val);
+          if (coords) set("pickupCoords", coords);
+        }}
+        onDropChange={(val, coords) => {
+          set("drop", val);
+          if (coords) set("dropCoords", coords);
+        }}
         onLocationsChanged={handleLocationsChanged}
+        onMetricsCalculated={(metrics) => set("tripMetrics", metrics)}
       />
 
       <div className="flex items-center justify-between pt-4 border-t border-border">
