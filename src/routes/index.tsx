@@ -578,47 +578,73 @@ function HowItWorks() {
 
 function ChauffeurPledge() {
   return (
-    <section className="bg-subtle/70 py-16 md:py-24 border-y border-border/60">
+    <section className="py-12 md:py-20">
       <div className="container-px mx-auto max-w-7xl">
-        <div className="rounded-3xl border border-border/80 bg-background p-8 md:p-12 shadow-card grid md:grid-cols-2 gap-8 items-center">
-          <div className="space-y-4">
-            <span className="inline-block rounded-full bg-primary/10 border border-primary/20 px-3 py-1 text-xs font-bold text-primary">
-              Our Quality Assurance
-            </span>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">
-              Certified Chauffeurs Trained for Premium Care.
-            </h2>
-            <p className="text-xs leading-relaxed text-muted-foreground md:text-sm">
-              Whether you drive a manual hatchback, a luxury automatic sedan, or a 7-seater SUV, our verified chauffeurs handle your vehicle with extreme care and precision.
-            </p>
-            <div className="space-y-2.5 pt-2 text-xs font-semibold text-foreground">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Rigorous driving skills & handling evaluation</span>
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
+          {/* Left Column with Header, Checklist & CTA */}
+          <div className="lg:col-span-6 space-y-6">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1E5AE8]">
+                SAFETY & ASSURANCE
+              </span>
+              <h2 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0B2D7A] tracking-tight leading-[1.15]">
+                Trained, uniformed <br />
+                and accountable.
+              </h2>
+              <p className="mt-4 text-xs sm:text-sm md:text-base text-slate-500 font-medium leading-relaxed max-w-xl">
+                Whether you drive a manual hatchback or a luxury automatic, every chauffeur is evaluated on handling, etiquette and punctuality before a single assignment.
+              </p>
+            </div>
+
+            {/* Checklist items */}
+            <div className="space-y-3.5 pt-1">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#1E5AE8] shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-[#0B2D7A]">
+                  Rigorous driving-skill and handling evaluation
+                </span>
               </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Criminal background verification & identity checks</span>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#1E5AE8] shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-[#0B2D7A]">
+                  Criminal background and identity verification
+                </span>
               </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Uniformed, polite, and punctual professionals</span>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#1E5AE8] shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-[#0B2D7A]">
+                  Uniformed, courteous and punctual professionals
+                </span>
               </div>
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4.5 w-4.5 text-[#1E5AE8] shrink-0" />
+                <span className="text-xs sm:text-sm font-semibold text-[#0B2D7A]">
+                  Replacement chauffeur guarantee on service lapses
+                </span>
+              </div>
+            </div>
+
+            {/* CTA Button */}
+            <div className="pt-2">
+              <Link
+                to="/book"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#1E5AE8] hover:bg-[#1546bd] text-white px-7 py-3.5 text-xs sm:text-sm font-bold shadow-lift hover:shadow-xl transition-all duration-200 active:scale-98 cursor-pointer"
+              >
+                <span>Book a verified chauffeur</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border/80 bg-subtle p-6 space-y-4">
-            <h3 className="font-bold text-base text-foreground">5-Star Service Guarantee</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              If your assigned driver does not arrive on time or meet our service standards, we guarantee an immediate replacement driver and trip credit.
-            </p>
-            <Link
-              to="/book"
-              className="inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-xs font-bold text-primary-foreground shadow-soft transition-all duration-200 hover:brightness-110"
-            >
-              <span>Book a Chauffeur Now</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+          {/* Right Column with Airport Arrival Chauffeur Image */}
+          <div className="relative lg:col-span-6">
+            <div className="relative overflow-hidden rounded-[32px] border border-border/80 bg-background shadow-lift group">
+              <img
+                src="/safety-assurance.jpg"
+                alt="Uniformed Driv A Long chauffeur opening door for executive client outside airport terminal"
+                className="w-full h-[420px] sm:h-[480px] md:h-[520px] object-cover object-center transition-transform duration-700 group-hover:scale-103"
+              />
+            </div>
           </div>
         </div>
       </div>
