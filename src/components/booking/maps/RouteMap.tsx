@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { GoogleMap, MarkerF, Polyline, DirectionsRenderer } from "@react-google-maps/api";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { GoogleMap, MarkerF } from "@react-google-maps/api";
 import { MapPin } from "lucide-react";
 
 interface Coords {
@@ -54,16 +54,16 @@ const defaultOptions: google.maps.MapOptions = {
   ],
 };
 
-function createFallbackRoutePath(origin: Coords, destination: Coords): Coords[] {
-  const points: Coords[] = [];
-  const steps = 25;
+function createFallbackRoutePath(origin: Coords, destination: Coords): google.maps.LatLng[] {
+  const points: google.maps.LatLng[] = [];
+  const steps = 30;
 
   const midLat = (origin.lat + destination.lat) / 2;
   const midLng = (origin.lng + destination.lng) / 2;
 
   const dx = destination.lng - origin.lng;
   const dy = destination.lat - origin.lat;
-  const curveFactor = 0.12;
+  const curveFactor = 0.14;
   const controlLat = midLat - dx * curveFactor;
   const controlLng = midLng + dy * curveFactor;
 
@@ -71,7 +71,9 @@ function createFallbackRoutePath(origin: Coords, destination: Coords): Coords[] 
     const t = i / steps;
     const lat = (1 - t) * (1 - t) * origin.lat + 2 * (1 - t) * t * controlLat + t * t * destination.lat;
     const lng = (1 - t) * (1 - t) * origin.lng + 2 * (1 - t) * t * controlLng + t * t * destination.lng;
-    points.push({ lat, lng });
+    if (window.google?.maps?.LatLng) {
+      points.push(new window.google.maps.LatLng(lat, lng));
+    }
   }
 
   return points;
@@ -91,81 +93,112 @@ export function RouteMap({
   className = "",
 }: RouteMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
+
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
 
   const onLoad = useCallback((m: google.maps.Map) => {
     setMap(m);
   }, []);
 
   const onUnmount = useCallback(() => {
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
     setMap(null);
   }, []);
 
-  // Decode backend polyline if present
-  const decodedPath = useMemo(() => {
-    if (!routePolyline || !isLoaded || !window.google?.maps?.geometry || !pickupCoords) return null;
-    try {
-      const path = window.google.maps.geometry.encoding.decodePath(routePolyline);
-      if (path && path.length > 0) {
-        const start = path[0];
-        const dist = Math.abs(start.lat() - pickupCoords.lat) + Math.abs(start.lng() - pickupCoords.lng);
-        if (dist > 0.5) return null;
-      }
-      return path;
-    } catch {
-      return null;
-    }
-  }, [routePolyline, isLoaded, pickupCoords]);
-
-  // Compute fallback curved route path when Google Directions API is restricted
-  const fallbackRoutePath = useMemo(() => {
-    if (!pickupCoords || !dropCoords) return null;
-    return createFallbackRoutePath(pickupCoords, dropCoords);
-  }, [pickupCoords, dropCoords]);
-
-  // Client-side Google Directions Service calculation
+  // Main Route Rendering Effect (Direct Google Maps Instance API)
   useEffect(() => {
-    if (routePolyline) {
-      setDirectionsResponse(null);
-      return;
-    }
-    if (!isLoaded || !window.google || !pickupCoords || !dropCoords) {
-      setDirectionsResponse(null);
-      return;
-    }
+    if (!map || !window.google || !isLoaded) return;
 
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
-
-      directionsService.route(
-        {
-          origin: pickupCoords,
-          destination: dropCoords,
-          travelMode: window.google.maps.TravelMode.DRIVING,
+    // Lazy creation of DirectionsRenderer
+    if (!directionsRendererRef.current) {
+      directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: "#1E5AE8",
+          strokeWeight: 6,
+          strokeOpacity: 0.9,
+          zIndex: 1000,
         },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK && result) {
-            setDirectionsResponse(result);
-
-            const leg = result.routes[0]?.legs[0];
-            if (leg && onRouteCalculated) {
-              const distanceKm = (leg.distance?.value || 0) / 1000;
-              const durationMinutes = (leg.duration?.value || 0) / 60;
-              const durationText = leg.duration?.text || "Unknown";
-              const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
-              onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
-            }
-          } else {
-            console.warn("Directions service status:", status);
-            setDirectionsResponse(null);
-          }
-        }
-      );
-    } catch (e) {
-      console.warn("Directions calculation error:", e);
-      setDirectionsResponse(null);
+      });
     }
-  }, [isLoaded, pickupCoords, dropCoords, onRouteCalculated, onRouteError, routePolyline]);
+
+    // Lazy creation of Polyline
+    if (!polylineRef.current) {
+      polylineRef.current = new window.google.maps.Polyline({
+        map: map,
+        strokeColor: "#1E5AE8",
+        strokeWeight: 6,
+        strokeOpacity: 0.9,
+        zIndex: 1000,
+      });
+    }
+
+    const renderer = directionsRendererRef.current;
+    const polyline = polylineRef.current;
+
+    if (!pickupCoords || !dropCoords) {
+      renderer.setMap(null);
+      polyline.setMap(null);
+      return;
+    }
+
+    // Priority 1: Backend polyline string if valid
+    if (routePolyline && window.google.maps.geometry?.encoding) {
+      try {
+        const decoded = window.google.maps.geometry.encoding.decodePath(routePolyline);
+        if (decoded && decoded.length > 0) {
+          renderer.setMap(null);
+          polyline.setPath(decoded);
+          polyline.setMap(map);
+          return;
+        }
+      } catch (e) {
+        console.warn("Backend polyline decoding error:", e);
+      }
+    }
+
+    // Priority 2: Google DirectionsService Client Request
+    const directionsService = new window.google.maps.DirectionsService();
+    directionsService.route(
+      {
+        origin: pickupCoords,
+        destination: dropCoords,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === window.google.maps.DirectionsStatus.OK && result) {
+          polyline.setMap(null);
+          renderer.setMap(map);
+          renderer.setDirections(result);
+
+          const leg = result.routes[0]?.legs[0];
+          if (leg && onRouteCalculated) {
+            const distanceKm = (leg.distance?.value || 0) / 1000;
+            const durationMinutes = (leg.duration?.value || 0) / 60;
+            const durationText = leg.duration?.text || "Unknown";
+            const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
+            onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
+          }
+        } else {
+          console.warn("Client DirectionsService status:", status);
+          // Priority 3: Fallback curved driving road polyline
+          renderer.setMap(null);
+          const fallbackPoints = createFallbackRoutePath(pickupCoords, dropCoords);
+          polyline.setPath(fallbackPoints);
+          polyline.setMap(map);
+        }
+      }
+    );
+  }, [map, isLoaded, pickupCoords, dropCoords, routePolyline, onRouteCalculated]);
 
   // Adjust map bounds when markers change
   useEffect(() => {
@@ -303,46 +336,6 @@ export function RouteMap({
               color: "#FFFFFF",
               fontWeight: "bold",
               fontSize: "12px",
-            }}
-          />
-        )}
-
-        {/* Driving Route: Tier 1 - Backend Polyline */}
-        {decodedPath && (
-          <Polyline
-            path={decodedPath}
-            options={{
-              strokeColor: "#1E5AE8",
-              strokeWeight: 6,
-              strokeOpacity: 0.9,
-            }}
-          />
-        )}
-
-        {/* Driving Route: Tier 2 - Google DirectionsRenderer */}
-        {!decodedPath && directionsResponse && (
-          <DirectionsRenderer
-            directions={directionsResponse}
-            options={{
-              polylineOptions: {
-                strokeColor: "#1E5AE8",
-                strokeWeight: 6,
-                strokeOpacity: 0.9,
-              },
-              suppressMarkers: true,
-            }}
-          />
-        )}
-
-        {/* Driving Route: Tier 3 - Guaranteed Fallback Polyline Route */}
-        {!decodedPath && !directionsResponse && fallbackRoutePath && (
-          <Polyline
-            path={fallbackRoutePath}
-            options={{
-              strokeColor: "#1E5AE8",
-              strokeWeight: 6,
-              strokeOpacity: 0.9,
-              geodesic: true,
             }}
           />
         )}
