@@ -63,7 +63,7 @@ export function LocationSearch({
   return (
     <div className="space-y-4">
       {/* Error Alert Banner */}
-      {errorMsg && (
+      {errorMsg && !errorMsg.includes("GOOGLE_MAPS") && !errorMsg.includes("API key") && (
         <div className="flex items-center justify-between rounded-2xl border border-destructive/30 bg-destructive/10 p-3.5 text-xs font-medium text-destructive animate-rise">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
