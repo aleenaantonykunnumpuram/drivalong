@@ -369,94 +369,96 @@ function Field({ icon, label, value, muted, small }: { icon?: React.ReactNode; l
 
 function WhyChooseUs() {
   return (
-    <section className="py-12 md:py-16">
+    <section className="py-12 md:py-20">
       <div className="container-px mx-auto max-w-7xl">
-        <div className="reveal max-w-2xl">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">Why Choose Us</p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-4xl">
-            Designed for Car Owners Who Expect Excellence.
-          </h2>
-          <p className="mt-3 text-sm text-muted-foreground leading-relaxed md:text-base">
-            Engineered so you get total peace of mind, professional driving precision, and seamless convenience.
-          </p>
-        </div>
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-14 items-center">
+          {/* Left Column with Executive Car Seat Image */}
+          <div className="relative lg:col-span-6">
+            <div className="relative overflow-hidden rounded-[32px] border border-border/80 bg-background shadow-lift group">
+              <img
+                src="/why-choose-us.jpg"
+                alt="Executive riding comfortably in luxury car backseat working on laptop"
+                className="w-full h-[420px] sm:h-[500px] md:h-[540px] object-cover object-center transition-transform duration-700 group-hover:scale-103"
+              />
+            </div>
+          </div>
 
-        {/* Asymmetric handcrafted layout */}
-        <div className="mt-10 grid gap-5 md:grid-cols-12">
-          {/* Main Featured Highlight */}
-          <div className="reveal md:col-span-7 rounded-3xl border border-border/80 bg-background p-8 shadow-card flex flex-col justify-between transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
+          {/* Right Column with Headline, Subheading, and 4 Feature List Items */}
+          <div className="lg:col-span-6 space-y-6">
             <div>
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-6">
-                <UserCheck className="h-6 w-6" />
-              </div>
-              <span className="inline-block rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-3 py-1 text-xs font-bold mb-3">
-                100% Verified Chauffeurs
+              <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1E5AE8]">
+                WHY CHOOSE US
               </span>
-              <h3 className="text-xl font-bold text-foreground md:text-2xl">
-                Background-Verified & Police-Checked Chauffeurs
-              </h3>
-              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                Every driver undergoes comprehensive police background checks, driving test evaluations, and customer care etiquette training before handling your car.
+              <h2 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0B2D7A] tracking-tight leading-[1.15]">
+                Built for owners who expect quiet excellence.
+              </h2>
+              <p className="mt-4 text-xs sm:text-sm md:text-base text-slate-500 font-medium leading-relaxed max-w-xl">
+                You keep the comfort of your own car. We bring the discipline, discretion and driving standards of a premium chauffeur service.
               </p>
             </div>
-            <div className="mt-8 flex items-center gap-3 border-t border-border/60 pt-4 text-xs font-semibold text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-              <span>Full identity verification & driving skill certified</span>
-            </div>
-          </div>
 
-          {/* Secondary Highlight Cards */}
-          <div className="reveal md:col-span-5 grid gap-5">
-            <div className="rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-                <Award className="h-5 w-5" />
+            {/* 4 Stacked Feature List Items */}
+            <div className="space-y-6 pt-2">
+              {/* Item 1 */}
+              <div className="flex items-start gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#EBF1FF] text-[#1E5AE8]">
+                  <UserCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2D7A]">
+                    Police-verified chauffeurs
+                  </h3>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                    Identity, licence and criminal background checks before any driver takes your wheel.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-lg font-bold text-foreground">Automatic & Manual Transmission Experts</h3>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Certified drivers experienced in handling luxury automatics, dual-clutch, and manual stick-shift vehicles.
-              </p>
-            </div>
 
-            <div className="rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-                <Wallet className="h-5 w-5" />
+              {/* Item 2 */}
+              <div className="flex items-start gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#EBF1FF] text-[#1E5AE8]">
+                  <Award className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2D7A]">
+                    Manual & automatic experts
+                  </h3>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                    Trained on hatchbacks, luxury automatics, dual-clutch sedans and 7-seater SUVs.
+                  </p>
+                </div>
               </div>
-              <h3 className="text-lg font-bold text-foreground">Transparent Rates & Zero Surge Pricing</h3>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-                Fair hourly packages with clear pricing. No hidden fees or unexpected surge multipliers.
-              </p>
-            </div>
-          </div>
 
-          {/* Bottom complementary row */}
-          <div className="reveal md:col-span-4 rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-              <Shield className="h-5 w-5" />
-            </div>
-            <h3 className="text-base font-bold text-foreground">Drive in Your Personal Car</h3>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              Enjoy maximum comfort in your familiar vehicle while our professional chauffeur takes the wheel.
-            </p>
-          </div>
+              {/* Item 3 */}
+              <div className="flex items-start gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#EBF1FF] text-[#1E5AE8]">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2D7A]">
+                    Transparent, zero-surge fares
+                  </h3>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                    Clear hourly packages. What you see before booking is what you pay after the trip.
+                  </p>
+                </div>
+              </div>
 
-          <div className="reveal md:col-span-4 rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-              <Clock className="h-5 w-5" />
+              {/* Item 4 */}
+              <div className="flex items-start gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#EBF1FF] text-[#1E5AE8]">
+                  <Navigation className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B2D7A]">
+                    Live tracking & support
+                  </h3>
+                  <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                    Follow your chauffeur in real time with a dedicated support line for every booking.
+                  </p>
+                </div>
+              </div>
             </div>
-            <h3 className="text-base font-bold text-foreground">On-Demand & Scheduled</h3>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              Book immediate driver pickup within 15-20 minutes or schedule in advance for intercity trips.
-            </p>
-          </div>
-
-          <div className="reveal md:col-span-4 rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-300 hover:shadow-card-hover hover:border-primary/40">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-              <Navigation className="h-5 w-5" />
-            </div>
-            <h3 className="text-base font-bold text-foreground">Live Driver Tracking & Support</h3>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              Track your driver's real-time location with instant status updates and dedicated support.
-            </p>
           </div>
         </div>
       </div>
