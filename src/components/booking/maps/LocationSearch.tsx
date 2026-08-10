@@ -96,20 +96,20 @@ export function LocationSearch({
           </button>
         </div>
 
-        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring ${pickupVerified ? "border-primary/40" : "border-border"}`}>
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 overflow-hidden ${pickupVerified ? "border-primary/40" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
               onLoad={(ac) => setPickupAutocomplete(ac)}
               onPlaceChanged={onPickupPlaceChanged}
-              className="flex-1"
+              className="flex-1 min-w-0 w-full overflow-hidden"
             >
               <input
                 type="text"
                 value={pickup}
                 onChange={(e) => onPickupChange(e.target.value, undefined, false)}
                 placeholder="Search pickup address..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
               />
             </Autocomplete>
           ) : (
@@ -118,7 +118,7 @@ export function LocationSearch({
               value={pickup}
               onChange={(e) => onPickupChange(e.target.value, undefined, false)}
               placeholder="Enter pickup location..."
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
             />
           )}
           {pickupVerified ? (
@@ -135,20 +135,20 @@ export function LocationSearch({
           <span>Destination <span className="text-[10px] lowercase font-normal text-muted-foreground">(optional for hourly/daily)</span></span>
         </div>
 
-        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring ${dropVerified ? "border-secondary/50" : "border-border"}`}>
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 overflow-hidden ${dropVerified ? "border-secondary/50" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
               onLoad={(ac) => setDropAutocomplete(ac)}
               onPlaceChanged={onDropPlaceChanged}
-              className="flex-1"
+              className="flex-1 min-w-0 w-full overflow-hidden"
             >
               <input
                 type="text"
                 value={drop}
                 onChange={(e) => onDropChange(e.target.value, undefined, false)}
                 placeholder="Search destination (optional for hourly/daily)..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
               />
             </Autocomplete>
           ) : (
@@ -157,7 +157,7 @@ export function LocationSearch({
               value={drop}
               onChange={(e) => onDropChange(e.target.value, undefined, false)}
               placeholder="Enter destination (optional)..."
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
             />
           )}
           {dropVerified ? (

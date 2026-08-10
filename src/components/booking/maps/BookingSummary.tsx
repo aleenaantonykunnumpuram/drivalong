@@ -46,17 +46,17 @@ export function BookingSummary({
 
       {/* Locations */}
       <div className="space-y-3 text-xs">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">Pickup Location</p>
             <p className="font-medium text-foreground truncate">{pickup || "Not selected"}</p>
           </div>
         </div>
 
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">Destination</p>
             <p className="font-medium text-foreground truncate">{drop || "Optional (Flexible Route)"}</p>
           </div>

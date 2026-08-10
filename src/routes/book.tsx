@@ -9,8 +9,8 @@ export const Route = createFileRoute("/book")({
     ],
   }),
   component: () => (
-    <div className="bg-subtle py-8 md:py-14">
-      <div className="container-px mx-auto max-w-5xl">
+    <div className="bg-subtle py-6 sm:py-8 md:py-14 w-full max-w-full overflow-x-hidden">
+      <div className="container-px mx-auto max-w-5xl w-full min-w-0">
         <BookingWizard />
       </div>
     </div>

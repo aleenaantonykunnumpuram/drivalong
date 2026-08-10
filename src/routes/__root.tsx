@@ -90,9 +90,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <div className="flex min-h-screen flex-col bg-background text-foreground w-full max-w-full overflow-x-hidden">
         <Navbar />
-        <main className="flex-1"><Outlet /></main>
+        <main className="flex-1 w-full max-w-full overflow-x-hidden"><Outlet /></main>
         <Footer />
       </div>
     </QueryClientProvider>

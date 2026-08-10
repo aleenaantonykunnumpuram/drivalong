@@ -297,11 +297,11 @@ export function GoogleMapComponent({
   );
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`space-y-6 w-full max-w-full overflow-hidden ${className}`}>
       {/* Top 2-Column Desktop Grid Layout */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start w-full max-w-full overflow-hidden">
         {/* Left Column: Location Search & Ride Metrics */}
-        <div className="space-y-5">
+        <div className="space-y-5 min-w-0 w-full overflow-hidden">
           <LocationSearch
             isLoaded={isLoaded && !loadError}
             pickup={pickup}
@@ -339,7 +339,7 @@ export function GoogleMapComponent({
         </div>
 
         {/* Right Column: Responsive Interactive Map */}
-        <div className="h-full min-h-[340px]">
+        <div className="h-full min-h-[300px] sm:min-h-[340px] min-w-0 w-full overflow-hidden rounded-3xl">
           <RouteMap
             isLoaded={isLoaded && !loadError}
             loadError={loadError}
@@ -351,7 +351,7 @@ export function GoogleMapComponent({
             routePolyline={metrics?.routePolyline}
             onRouteCalculated={handleClientRouteCalculated}
             onRouteError={(err) => setErrorMsg(err)}
-            className="h-full"
+            className="h-full w-full max-w-full"
           />
         </div>
       </div>

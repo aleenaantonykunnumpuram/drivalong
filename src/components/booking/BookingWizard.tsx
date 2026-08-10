@@ -70,18 +70,18 @@ export function BookingWizard() {
   const back = () => setS((p) => ({ ...p, step: Math.max(p.step - 1, 0) }));
 
   return (
-    <div className="rounded-[28px] border border-border bg-background shadow-lift">
-      <div className="border-b border-border p-6 md:p-8">
-        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
-          <Sparkles className="h-3.5 w-3.5" /> Chauffeur Rental · Your Driver, Your Car
+    <div className="rounded-[24px] sm:rounded-[28px] border border-border bg-background shadow-lift w-full max-w-full overflow-hidden">
+      <div className="border-b border-border p-4 sm:p-6 md:p-8 w-full max-w-full overflow-hidden">
+        <div className="mb-1 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
+          <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Chauffeur Rental · Your Driver, Your Car</span>
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight md:text-3xl">
           {s.step < 5 ? "Book a Professional Chauffeur" : "Chauffeur Booking Confirmed"}
         </h1>
         <ProgressBar step={s.step} />
       </div>
 
-      <div className="p-6 md:p-8">
+      <div className="p-4 sm:p-6 md:p-8 w-full max-w-full overflow-hidden">
         {s.step === 0 && <StepSelectService s={s} set={set} onNext={next} />}
         {s.step === 1 && <StepPickup s={s} set={set} onNext={next} onBack={back} />}
         {s.step === 2 && <StepSchedule s={s} set={set} onNext={next} onBack={back} />}

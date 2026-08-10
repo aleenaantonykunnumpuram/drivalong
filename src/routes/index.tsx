@@ -191,8 +191,8 @@ function QuickBook() {
       </div>
 
       {/* Service Selector */}
-      <div className="mt-6">
-        <div className="inline-flex items-center gap-1 rounded-full bg-slate-100/80 p-1.5 border border-slate-200/60 shadow-inner">
+      <div className="mt-6 w-full overflow-x-auto no-scrollbar">
+        <div className="flex w-full sm:w-auto sm:inline-flex items-center gap-1 rounded-full bg-slate-100/80 p-1 border border-slate-200/60 shadow-inner min-w-max">
           {(["hourly", "oneway", "outstation"] as const).map((t) => {
             const isActive = tab === t;
             const label = t === "hourly" ? "Hourly" : t === "oneway" ? "One-Way" : "Outstation";
@@ -201,7 +201,7 @@ function QuickBook() {
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`rounded-full px-6 py-2.5 text-xs font-bold transition-all duration-200 cursor-pointer ${
+                className={`rounded-full px-4 sm:px-6 py-2 sm:py-2.5 text-xs font-bold transition-all duration-200 cursor-pointer ${
                   isActive
                     ? "bg-white text-[#1E5AE8] shadow-md shadow-slate-200/50"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
