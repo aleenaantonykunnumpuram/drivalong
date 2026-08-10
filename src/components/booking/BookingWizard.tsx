@@ -197,6 +197,8 @@ function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyo
       <GoogleMapComponent
         pickup={s.pickup}
         drop={s.drop}
+        pickupCoords={s.pickupCoords}
+        dropCoords={s.dropCoords}
         serviceType={s.serviceType}
         duration={s.duration}
         onPickupChange={(val, coords) => {

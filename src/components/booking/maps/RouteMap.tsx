@@ -315,9 +315,9 @@ export function RouteMap({
         )}
 
         {/* Fallback PolylineF Driving Path (Guaranteed visible under all conditions) */}
-        {!directionsResponse && polylinePath.length > 0 && (
+        {pickupCoords && dropCoords && (!directionsResponse || polylinePath.length > 0) && (
           <PolylineF
-            path={polylinePath}
+            path={polylinePath.length > 0 ? polylinePath : [pickupCoords, dropCoords]}
             options={{
               strokeColor: "#1E5AE8",
               strokeWeight: 6,

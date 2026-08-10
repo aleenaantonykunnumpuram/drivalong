@@ -31,6 +31,8 @@ export interface TripMetrics {
 interface GoogleMapComponentProps {
   pickup?: string;
   drop?: string;
+  pickupCoords?: Coords | null;
+  dropCoords?: Coords | null;
   serviceType?: string;
   duration?: string;
   vehicleType?: string;
@@ -46,6 +48,8 @@ const libraries: Libraries = ["places", "geometry"];
 export function GoogleMapComponent({
   pickup = "",
   drop = "",
+  pickupCoords: propPickupCoords = null,
+  dropCoords: propDropCoords = null,
   serviceType = "Hourly Chauffeur",
   duration = "4 Hours",
   onPickupChange,
@@ -98,6 +102,20 @@ export function GoogleMapComponent({
   useEffect(() => {
     onLocationsChangedRef.current = onLocationsChanged;
   }, [onLocationsChanged]);
+
+  useEffect(() => {
+    if (propPickupCoords) {
+      setPickupCoords(propPickupCoords);
+      setPickupVerified(true);
+    }
+  }, [propPickupCoords]);
+
+  useEffect(() => {
+    if (propDropCoords) {
+      setDropCoords(propDropCoords);
+      setDropVerified(true);
+    }
+  }, [propDropCoords]);
 
   const handlePickupChange = useCallback(
     (val: string, coords?: Coords, verified?: boolean) => {
@@ -215,9 +233,7 @@ export function GoogleMapComponent({
           if (status === "OK" && results && results[0]) {
             const loc = results[0].geometry.location;
             const coords = { lat: loc.lat(), lng: loc.lng() };
-            setPickupCoords(coords);
-            setPickupVerified(true);
-            onPickupChange(pickup, coords, true);
+            handlePickupChange(pickup, coords, true);
           }
         });
       } else {
@@ -226,9 +242,7 @@ export function GoogleMapComponent({
           const data = await res.json();
           if (data && data[0]) {
             const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-            setPickupCoords(coords);
-            setPickupVerified(true);
-            onPickupChange(pickup, coords, true);
+            handlePickupChange(pickup, coords, true);
           }
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
@@ -237,7 +251,7 @@ export function GoogleMapComponent({
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [pickup, pickupVerified, isLoaded, onPickupChange]);
+  }, [pickup, pickupVerified, isLoaded, handlePickupChange]);
 
   // Auto-geocode Drop text if typed manually without selecting dropdown
   useEffect(() => {
@@ -250,9 +264,7 @@ export function GoogleMapComponent({
           if (status === "OK" && results && results[0]) {
             const loc = results[0].geometry.location;
             const coords = { lat: loc.lat(), lng: loc.lng() };
-            setDropCoords(coords);
-            setDropVerified(true);
-            onDropChange(drop, coords, true);
+            handleDropChange(drop, coords, true);
           }
         });
       } else {
@@ -261,9 +273,7 @@ export function GoogleMapComponent({
           const data = await res.json();
           if (data && data[0]) {
             const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-            setDropCoords(coords);
-            setDropVerified(true);
-            onDropChange(drop, coords, true);
+            handleDropChange(drop, coords, true);
           }
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
@@ -272,7 +282,7 @@ export function GoogleMapComponent({
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [drop, dropVerified, isLoaded, onDropChange]);
+  }, [drop, dropVerified, isLoaded, handleDropChange]);
 
   // Unified Route & Fare Fetching effect
   useEffect(() => {
