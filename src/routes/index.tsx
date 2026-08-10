@@ -652,120 +652,87 @@ function ChauffeurPledge() {
   );
 }
 
-function Testimonials() {
-  const reviews = [
-    {
-      name: "Anand Verma",
-      role: "Software Architect",
-      text: "Hired an hourly chauffeur for my weekend shopping trip. The driver handled my automatic SUV smoothly in traffic. Fantastic service!",
-    },
-    {
-      name: "Priya Sharma",
-      role: "Business Owner",
-      text: "We use Driv A Long outstation drivers whenever we travel in our car. Always punctual, safe driving, and background verified.",
-    },
-    {
-      name: "Vikram Mehta",
-      role: "Corporate Executive",
-      text: "Designated driver service is a lifesaver after late weekend dinners. Polite driver, clean uniform, and drove us safely home.",
-    },
-  ];
-
-  return (
-    <section className="py-16 md:py-24">
-      <div className="container-px mx-auto max-w-7xl">
-        <div className="reveal text-center max-w-2xl mx-auto">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">Customer Stories</p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-4xl">
-            Trusted by Car Owners Everywhere.
-          </h2>
-        </div>
-
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          {reviews.map((r, i) => (
-            <div
-              key={i}
-              className="reveal rounded-3xl border border-border/80 bg-background p-6 shadow-card flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex gap-1 text-secondary">
-                  {[...Array(5)].map((_, idx) => (
-                    <Star key={idx} className="h-4 w-4 fill-secondary" />
-                  ))}
-                </div>
-                <p className="mt-4 text-xs leading-relaxed text-muted-foreground font-medium">"{r.text}"</p>
-              </div>
-              <div className="mt-6 border-t border-border/60 pt-4">
-                <div className="font-bold text-xs text-foreground">{r.name}</div>
-                <div className="text-[11px] text-muted-foreground">{r.role}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   const faqs = [
     {
       q: "Does Driv A Long provide cars?",
-      a: "No. Driv A Long Private Limited is a chauffeur rental platform. We provide background-verified, professional drivers to drive your personal or company car.",
+      a: "No. Driv A Long Private Limited is a chauffeur service. We provide background-verified professional drivers who drive your personal or company car.",
     },
     {
-      q: "Can I hire a driver for manual or automatic cars?",
-      a: "Yes! All our chauffeurs are experienced and certified to drive both manual stick-shift and automatic transmission vehicles.",
+      q: "Can I hire a driver for a manual or automatic car?",
+      a: "Yes! Our chauffeurs are certified and experienced in driving manual stick-shift cars, luxury automatics, dual-clutch sedans, and 7-seater SUVs.",
     },
     {
-      q: "Is a destination address mandatory for hourly bookings?",
-      a: "No. For hourly and full-day chauffeur rentals, destination is completely optional. You can direct the chauffeur as you travel.",
+      q: "Is a destination mandatory for hourly bookings?",
+      a: "No. For hourly and full-day chauffeur rentals, destination is completely optional. You can direct your chauffeur on the go as per your schedule.",
     },
     {
-      q: "How are driver rates calculated?",
-      a: "Rates are based on the selected service type, duration (hours), and optional distance for outstation/one-way trips. All rates are shown with complete transparency before booking.",
+      q: "How are chauffeur rates calculated?",
+      a: "We offer transparent pricing based on the chosen service duration or distance package. What you see before booking is what you pay after the trip.",
     },
   ];
 
   return (
-    <section className="bg-subtle/70 py-16 md:py-24 border-y border-border/60">
-      <div className="container-px mx-auto max-w-4xl">
-        <div className="reveal text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">Frequently Asked Questions</p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-4xl">
-            Everything You Need to Know.
-          </h2>
-        </div>
+    <section className="py-12 md:py-20">
+      <div className="container-px mx-auto max-w-7xl">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-16 items-start">
+          {/* Left Column matching reference screenshot */}
+          <div className="lg:col-span-5 space-y-5">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1E5AE8]">
+              FAQ
+            </span>
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#0B2D7A] tracking-tight leading-[1.15]">
+              Everything you need <br />
+              to know.
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed max-w-sm">
+              Still unsure about something? Our team answers on WhatsApp within minutes.
+            </p>
 
-        <div className="mt-10 space-y-3">
-          {faqs.map((f, i) => {
-            const isOpen = openIndex === i;
-            return (
-              <div
-                key={i}
-                className="reveal rounded-2xl border border-border/80 bg-background shadow-soft transition-all duration-200"
+            <div className="pt-2">
+              <a
+                href="https://wa.me/917306605416"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-300 bg-white hover:border-[#1E5AE8] text-[#0B2D7A] hover:text-[#1E5AE8] px-7 py-3 text-xs font-bold transition-all duration-200 shadow-sm cursor-pointer"
               >
-                <button
-                  onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="flex w-full items-center justify-between p-5 text-left text-sm font-bold text-foreground"
-                >
-                  <span>{f.q}</span>
-                  <ChevronDown
-                    className={`h-4 w-4 text-primary shrink-0 transition-transform duration-200 ${
-                      isOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="px-5 pb-5 pt-0 text-xs text-muted-foreground leading-relaxed border-t border-border/40 mt-1 pt-3">
-                    {f.a}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                <span>Talk to our team</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Right Column Accordion matching reference screenshot */}
+          <div className="lg:col-span-7 divide-y divide-slate-100 border-y border-slate-100">
+            {faqs.map((f, i) => {
+              const isOpen = openIndex === i;
+              return (
+                <div key={i} className="py-5 transition-all duration-200">
+                  <button
+                    type="button"
+                    onClick={() => setOpenIndex(isOpen ? null : i)}
+                    className="flex w-full items-center justify-between text-left text-base sm:text-lg font-bold text-[#0B2D7A] group cursor-pointer"
+                  >
+                    <span className="pr-4 group-hover:text-[#1E5AE8] transition-colors">
+                      {f.q}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-[#1E5AE8] shrink-0 transition-transform duration-200 ${
+                        isOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="mt-3 text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                      {f.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </section>
