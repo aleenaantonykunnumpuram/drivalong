@@ -767,7 +767,7 @@ function StepConfirmation({ s }: { s: State }) {
       duration: s.duration,
       transmission: s.transmission,
       estimatedFare: s.tripMetrics ? s.tripMetrics.fare.totalFare : 797,
-      driverName: "Rajesh Kumar (Pending WhatsApp Approval)",
+      driverName: "Pending Admin Approval",
       status: "Pending Admin Approval via WhatsApp (+91 7306605416)",
       customerName: user?.name || "Verified Customer",
       customerEmail: user?.email || "",
@@ -833,7 +833,7 @@ function StepConfirmation({ s }: { s: State }) {
               <Meta k="Service Type" v={s.serviceType} />
               <Meta k="Duration" v={s.duration} />
               <Meta k="Driver Status" v="Pending Admin Approval" />
-              <Meta k="WhatsApp Support" v="+91 7306605416" />
+              <Meta k="Contact Us / Support" v="+91 7306605416" />
             </div>
           </div>
 

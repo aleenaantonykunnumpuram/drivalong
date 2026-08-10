@@ -92,11 +92,11 @@ export function downloadRideSummaryReceipt(data: RideSummaryData) {
       </div>
       <div>
         <div class="label">Assigned Chauffeur</div>
-        <div class="value">${data.driverName || "Rajesh Kumar (Pending Admin Approval)"}</div>
+        <div class="value">${data.driverName && !data.driverName.includes("Rajesh") ? data.driverName : "Pending Admin Approval"}</div>
       </div>
       <div>
-        <div class="label">Chauffeur Contact</div>
-        <div class="value">${data.driverPhone || "+91 98765 43210"}</div>
+        <div class="label">For Any Issues / Contact Us</div>
+        <div class="value">+91 7306605416</div>
       </div>
     </div>
 
