@@ -27,12 +27,16 @@ const services = [
 function Services() {
   return (
     <div>
-      <section className="border-b border-border bg-subtle/40">
-        <div className="container-px mx-auto max-w-4xl py-16 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">Chauffeur Catalog</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground md:text-5xl">Your Driver. Your Car.</h1>
-          <p className="mx-auto mt-4 max-w-xl text-xs md:text-sm text-muted-foreground leading-relaxed">
-            We provide verified, experienced chauffeurs to drive your personal or executive vehicle on demand with complete price transparency.
+      <section className="bg-gradient-to-br from-[#061847] via-[#0B2D7A] to-[#041235] py-20 text-center text-white relative overflow-hidden">
+        <div className="container-px mx-auto max-w-4xl relative z-10">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#F4B400]">
+            CHAUFFEUR CATALOGUE
+          </span>
+          <h1 className="mt-3 text-4xl sm:text-5xl md:text-6xl font-extrabold text-white tracking-tight leading-[1.12]">
+            Your driver. Your car.
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-xs sm:text-sm md:text-base text-blue-100/80 font-normal leading-relaxed">
+            Verified, experienced chauffeurs who drive your personal or executive vehicle on demand — with complete price transparency.
           </p>
         </div>
       </section>
