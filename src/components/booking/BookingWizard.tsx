@@ -227,6 +227,32 @@ function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyo
 function StepSchedule({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
   return (
     <div className="animate-rise space-y-6 max-w-2xl mx-auto">
+      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-5">
+        <div>
+          <h3 className="text-lg font-semibold">Transmission & Booking Time</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">Specify your car's transmission type so we assign a qualified driver.</p>
+        </div>
+
+        {/* Transmission Selection */}
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Your Vehicle Transmission</label>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {(["automatic", "manual"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => set("transmission", t)}
+                className={`rounded-2xl border-2 p-4 text-left transition ${
+                  s.transmission === t ? "border-primary bg-primary/5 shadow-soft" : "border-border bg-background hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold capitalize">
+                  <Cog className={`h-4 w-4 ${s.transmission === t ? "text-primary" : "text-muted-foreground"}`} />
+                  {t} Transmission
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t === "automatic" ? "Automated / AMT / Dual Clutch" : "Manual 5/6 Speed Stick Shift"}
+                </p>
               </button>
             ))}
           </div>
