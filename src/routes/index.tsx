@@ -743,37 +743,55 @@ function FAQ() {
 
 function CTASection() {
   return (
-    <section className="py-16 md:py-24">
-      <div className="container-px mx-auto max-w-5xl">
-        <div className="rounded-3xl border border-[#1E4193] bg-[#0B2D7A] p-8 md:p-14 text-center text-white shadow-lift relative overflow-hidden">
-          <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-[#1E5AE8]/20 blur-3xl pointer-events-none" />
-          <div className="absolute -left-20 -bottom-20 h-60 w-60 rounded-full bg-[#F4B400]/15 blur-3xl pointer-events-none" />
+    <section className="py-12 md:py-20">
+      <div className="container-px mx-auto max-w-7xl">
+        <div className="relative rounded-[28px] sm:rounded-[36px] overflow-hidden bg-[#030E30] shadow-[0_25px_60px_-15px_rgba(3,14,48,0.4)] border border-[#0F2B70]">
+          {/* Highway Night Image Background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-50 mix-blend-luminosity scale-105 transition-transform duration-1000 hover:scale-100"
+            style={{ backgroundImage: `url('/cta-highway.jpg')` }}
+          />
 
-          <span className="inline-block rounded-full bg-[#F4B400]/15 text-[#F4B400] border border-[#F4B400]/30 px-3.5 py-1 text-xs font-bold mb-4">
-            Official Chauffeur Partner
-          </span>
+          {/* Deep Navy Dark Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#030E30] via-[#051747]/95 to-[#051747]/60" />
 
-          <h2 className="text-2xl font-extrabold tracking-tight md:text-4xl text-white">
-            Ready to Hire Your Personal Chauffeur?
-          </h2>
-          <p className="mt-3 text-xs md:text-sm text-blue-100/90 max-w-xl mx-auto leading-relaxed">
-            Book background-verified professional drivers for your car in under 60 seconds with Driv A Long Private Limited.
-          </p>
+          {/* Glowing Ambient Light Orbs */}
+          <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-[#1E5AE8]/20 blur-3xl pointer-events-none" />
+          <div className="absolute left-1/3 bottom-0 h-60 w-60 rounded-full bg-[#F4B400]/10 blur-3xl pointer-events-none" />
 
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <Link
-              to="/book"
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#F4B400] px-6 py-3.5 text-xs font-bold text-[#0B2D7A] shadow-soft transition-all duration-200 hover:bg-[#E5A800] hover:scale-102 active:scale-98"
-            >
-              <span>Book a Driver Now</span>
-              <ArrowRight className="h-3.5 w-3.5 text-[#0B2D7A]" />
-            </Link>
-            <Link
-              to="/services"
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#1E5AE8] px-6 py-3.5 text-xs font-bold text-white transition-all duration-200 hover:bg-[#184CC6]"
-            >
-              <span>Explore Services</span>
-            </Link>
+          {/* Content Wrapper */}
+          <div className="relative z-10 p-8 sm:p-12 md:p-16 lg:p-20 max-w-3xl space-y-6">
+            <div>
+              <span className="inline-flex items-center rounded-full border border-[#F4B400]/40 bg-[#F4B400]/10 px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-widest text-[#F4B400]">
+                READY WHEN YOU ARE
+              </span>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-[1.1]">
+              Your car. Our chauffeur. <br className="hidden sm:inline" />
+              Every journey handled.
+            </h2>
+
+            <p className="text-xs sm:text-sm md:text-base text-slate-300 font-medium max-w-xl leading-relaxed">
+              Book a background-verified professional driver in under a minute — for tonight, tomorrow, or the whole week.
+            </p>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5">
+              <Link
+                to="/book"
+                className="inline-flex items-center justify-center gap-2.5 rounded-full bg-[#F4B400] hover:bg-[#E5A800] text-slate-950 px-7 py-3.5 text-xs sm:text-sm font-extrabold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-98 cursor-pointer group"
+              >
+                <span>Book a chauffeur</span>
+                <ArrowRight className="h-4 w-4 text-slate-950 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+
+              <Link
+                to="/services"
+                className="inline-flex items-center justify-center rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-white px-7 py-3.5 text-xs sm:text-sm font-semibold transition-all duration-200 backdrop-blur-md active:scale-98 cursor-pointer"
+              >
+                <span>Explore services</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
