@@ -59,7 +59,6 @@ function HomePage() {
       <Services />
       <HowItWorks />
       <ChauffeurPledge />
-      <Testimonials />
       <FAQ />
       <CTASection />
     </div>
@@ -531,37 +530,46 @@ function Services() {
 
 function HowItWorks() {
   const steps = [
-    { n: "01", t: "Choose Service", d: "Select One-Way, Hourly, Airport or Outstation." },
-    { n: "02", t: "Pickup Address", d: "Search your address (destination optional for hourly)." },
-    { n: "03", t: "Date & Time", d: "Request immediate dispatch or schedule for later." },
-    { n: "04", t: "Set Duration", d: "Select required duration (1h, 2h, 4h, 8h, or Full Day)." },
-    { n: "05", t: "Confirm Booking", d: "Review fare breakdown and confirm payment method." },
-    { n: "06", t: "Driver Arrives", d: "Verified chauffeur arrives at your location to drive your car." },
+    { n: "01", t: "Choose your service", d: "One-way, hourly, airport or outstation." },
+    { n: "02", t: "Share pickup details", d: "Destination stays optional for hourly bookings." },
+    { n: "03", t: "Pick date & time", d: "Immediate dispatch or schedule in advance." },
+    { n: "04", t: "Confirm the fare", d: "Review a clear breakdown before you commit." },
+    { n: "05", t: "Chauffeur arrives", d: "A verified driver reaches you, uniformed and ready." },
+    { n: "06", t: "Travel & rate", d: "Sit back in your own car and rate the drive." },
   ];
 
   return (
-    <section className="py-16 md:py-24">
+    <section className="py-12 md:py-20 bg-[#051747] text-white">
       <div className="container-px mx-auto max-w-7xl">
-        <div className="reveal text-center max-w-2xl mx-auto">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">How It Works</p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-foreground md:text-4xl">
-            Book Your Chauffeur in 6 Easy Steps.
+        <div>
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#F4B400]">
+            HOW IT WORKS
+          </span>
+          <h2 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-[1.15]">
+            Six calm steps from request to <br className="hidden sm:inline" />
+            road.
           </h2>
         </div>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {steps.map((s, i) => (
-            <div
-              key={i}
-              className="reveal rounded-3xl border border-border/80 bg-background p-6 shadow-card transition-all duration-200 hover:border-primary/40"
-            >
-              <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-xs font-extrabold text-primary mb-4">
-                {s.n}
+        <div className="mt-10 overflow-hidden rounded-[28px] border border-blue-400/20 bg-[#0B2D7A]/60 backdrop-blur-xl shadow-lift">
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-blue-400/20">
+            {steps.slice(0, 3).map((s, i) => (
+              <div key={i} className="p-8 sm:p-10 space-y-3">
+                <span className="text-sm font-extrabold text-[#F4B400] block">{s.n}</span>
+                <h3 className="text-xl font-bold text-white tracking-tight">{s.t}</h3>
+                <p className="text-xs sm:text-sm text-blue-100/70 font-normal leading-relaxed">{s.d}</p>
               </div>
-              <h3 className="text-base font-bold text-foreground">{s.t}</h3>
-              <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed">{s.d}</p>
-            </div>
-          ))}
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-blue-400/20 border-t border-blue-400/20">
+            {steps.slice(3, 6).map((s, i) => (
+              <div key={i} className="p-8 sm:p-10 space-y-3">
+                <span className="text-sm font-extrabold text-[#F4B400] block">{s.n}</span>
+                <h3 className="text-xl font-bold text-white tracking-tight">{s.t}</h3>
+                <p className="text-xs sm:text-sm text-blue-100/70 font-normal leading-relaxed">{s.d}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
