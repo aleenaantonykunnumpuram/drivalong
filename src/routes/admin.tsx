@@ -8,7 +8,7 @@ import { getAllBookingsFn } from "@/lib/api/trip.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Admin Management Panel — Driv A Long" }],
+    meta: [{ title: "Admin Management Panel — Driv A Long Private Limited" }],
   }),
   component: AdminPanel,
 });

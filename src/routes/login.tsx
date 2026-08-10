@@ -8,7 +8,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Login — Driv A Long" },
+      { title: "Login — Driv A Long Private Limited" },
       { name: "description", content: "Sign in to book chauffeurs, manage trips, and access saved addresses." },
     ],
   }),

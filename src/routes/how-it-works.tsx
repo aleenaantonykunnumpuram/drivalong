@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Compass, MapPin, Calendar, Clock, CreditCard, UserCheck, ArrowRight } from "lucide-react";
+import { Compass, MapPin, Calendar, Clock, MessageSquare, UserCheck, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/how-it-works")({
   head: () => ({
     meta: [
-      { title: "How It Works — Driv A Long" },
+      { title: "How It Works — Driv A Long Private Limited" },
       { name: "description", content: "Hire a professional chauffeur for your car in six simple steps. Choose service, enter pickup, select date & duration, confirm fare, and get driver assigned." },
-      { property: "og:title", content: "How Driv A Long Works" },
+      { property: "og:title", content: "How Driv A Long Private Limited Works" },
       { property: "og:description", content: "Professional driver hire process explained." },
     ],
   }),
@@ -18,7 +18,7 @@ const steps = [
   { icon: MapPin, t: "Enter Pickup Details", d: "Search your pickup address. Destination is completely optional for hourly or daily rentals." },
   { icon: Calendar, t: "Select Date & Time", d: "Request an immediate driver pickup (arrives in 15-20 min) or schedule for a future date & time." },
   { icon: Clock, t: "Choose Duration", d: "Select how many hours you need the chauffeur (1 Hour, 2 Hours, 4 Hours, 8 Hours, or Full Day)." },
-  { icon: CreditCard, t: "Confirm Booking", d: "Review the transparent fare breakdown, accept policy terms, and choose your preferred payment method." },
+  { icon: MessageSquare, t: "Book via WhatsApp", d: "Review your pre-filled booking details and send your request directly to our team on WhatsApp (+91 7306605416)." },
   { icon: UserCheck, t: "Driver Assigned", d: "A background-verified professional chauffeur arrives at your pickup location to drive your car." },
 ];
 

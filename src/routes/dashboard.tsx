@@ -7,7 +7,7 @@ import { getUserBookingsFn } from "@/lib/api/trip.functions";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
-    meta: [{ title: "Customer Dashboard — Driv A Long" }],
+    meta: [{ title: "Customer Dashboard — Driv A Long Private Limited" }],
   }),
   component: CustomerDashboard,
 });
@@ -58,7 +58,7 @@ function CustomerDashboard() {
                 date: t.bookingDate || new Date(t.createdAt).toLocaleDateString(),
                 time: t.bookingTime || "Scheduled",
                 duration: t.duration || "4 Hours",
-                price: `₹${t.estimatedPrice || t.fare?.totalFare || 797}`,
+                price: t.estimatedPrice || t.fare?.totalFare ? `₹${t.estimatedPrice || t.fare?.totalFare}` : "Fare Upon Pickup",
                 driverName: t.driverName || "Unassigned",
                 driverPhone: t.driverPhone || "",
                 status: st as any,

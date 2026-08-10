@@ -8,7 +8,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "Sign Up — Driv A Long" },
+      { title: "Sign Up — Driv A Long Private Limited" },
       { name: "description", content: "Create an account to book professional chauffeurs, track trips, and manage bookings." },
     ],
   }),

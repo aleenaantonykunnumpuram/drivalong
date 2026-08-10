@@ -4,7 +4,7 @@ import { BookingWizard } from "@/components/booking/BookingWizard";
 export const Route = createFileRoute("/book")({
   head: () => ({
     meta: [
-      { title: "Book a Chauffeur — Driv A Long" },
+      { title: "Book a Chauffeur — Driv A Long Private Limited" },
       { name: "description", content: "Book a professional chauffeur in five easy steps. Transparent pricing, verified drivers, live tracking." },
     ],
   }),

@@ -6,7 +6,7 @@ import { useAuthUser } from "@/lib/auth";
 
 export const Route = createFileRoute("/driver")({
   head: () => ({
-    meta: [{ title: "Driver Portal — Driv A Long" }],
+    meta: [{ title: "Driver Portal — Driv A Long Private Limited" }],
   }),
   component: DriverPortal,
 });
@@ -80,7 +80,7 @@ function DriverPortal() {
             time: `${t.bookingDate || "Today"} ${t.bookingTime || ""}`,
             duration: t.duration || "4 Hours",
             transmission: t.transmission || "Automatic",
-            price: `₹${t.estimatedPrice || t.fare?.totalFare || 797}`,
+            price: t.estimatedPrice || t.fare?.totalFare ? `₹${t.estimatedPrice || t.fare?.totalFare}` : "Fare Upon Pickup",
             status: (t.bookingStatus === "Pending" ? "Pending Accept" : t.bookingStatus) as any,
           }));
           setTasks(mapped);

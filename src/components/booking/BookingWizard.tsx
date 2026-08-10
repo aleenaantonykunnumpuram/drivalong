@@ -33,7 +33,7 @@ interface State {
   tripMetrics: TripMetrics | null;
 }
 
-const STEPS = ["Service", "Pickup", "Schedule", "Duration", "Payment", "Confirmed"];
+const STEPS = ["Service", "Pickup", "Schedule", "Duration", "Review & Book", "Confirmed"];
 
 const SERVICE_ICONS: Record<ServiceType, any> = {
   "One-Way Chauffeur": Compass,
@@ -376,93 +376,141 @@ function StepDuration({ s, set, onNext, onBack }: { s: State; set: <K extends ke
           onClick={onNext}
           className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
         >
-          Review Fare & Pay <ArrowRight className="h-4 w-4" />
+          Review & Book <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 }
 
-/* ------------------------ Step 5 · Payment ------------------------ */
+function WhatsAppIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414-.074-.124-.272-.198-.57-.347z"/>
+      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 2.159.685 4.158 1.854 5.795L2.5 21.5l3.829-1.326A9.952 9.952 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zM4 12a8 8 0 1114.93 4.005.996.996 0 01.129.539l.608 2.433-2.433-.608a.996.996 0 01-.539-.129A8 8 0 014 12z"/>
+    </svg>
+  );
+}
+
+/* ------------------------ Step 5 · Review & WhatsApp Booking ------------------------ */
 
 function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
   const { user } = useAuthUser();
-  const beforeOptions = ["UPI", "Credit Card", "Debit Card", "Net Banking", "Wallet"];
-  const afterOptions = ["Cash", "UPI"];
-  const active = s.payMode === "before" ? beforeOptions : afterOptions;
-
-  useEffect(() => {
-    if (!active.includes(s.payMethod)) set("payMethod", active[0]);
-  }, [s.payMode]);
-
-  const [termsAgreed, setTermsAgreed] = useState(false);
-  const [policyAgreed, setPolicyAgreed] = useState(false);
+  const [custName, setCustName] = useState(user?.name || "");
+  const [custPhone, setCustPhone] = useState(user?.phone || "");
+  const [termsAgreed, setTermsAgreed] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [txnDetails, setTxnDetails] = useState<{ txnId: string; bookingId: string; amount: string; method: string; dateStr: string } | null>(null);
+  const [validationError, setValidationError] = useState("");
 
-  const fare = s.tripMetrics?.fare;
   const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Hourly Chauffeur"];
   const durationHours = DURATION_HOURS[s.duration] || 4;
-  const estimatedPrice = fare ? fare.totalFare : serviceDetails.baseFare + durationHours * serviceDetails.ratePerHour;
-  const totalAmountStr = formatCurrency(estimatedPrice);
-  const canPay = termsAgreed && policyAgreed;
 
-  if (!user) {
-    return (
-      <div className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-8 text-center space-y-4 animate-rise">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-500/20 text-amber-600">
-          <Lock className="h-7 w-7" />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-foreground">Sign In Required to Book Chauffeur</h3>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1">
-            Only authenticated customers can book rides. Please log in or create an account to confirm your chauffeur driver.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <Link
-            to="/login"
-            className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110"
-          >
-            Sign In Now <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/signup"
-            className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-6 py-3 text-sm font-semibold hover:bg-muted"
-          >
-            Create New Account
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const fare = s.tripMetrics?.fare;
+  const totalAmountNum = fare ? fare.totalFare : serviceDetails.baseFare + durationHours * serviceDetails.ratePerHour;
+  const totalAmountStr = formatCurrency(totalAmountNum);
 
-  const handleProceedToPay = () => {
-    if (!canPay || processing) return;
+  const handleBookViaWhatsApp = () => {
+    setValidationError("");
+
+    if (!custName.trim()) {
+      setValidationError("Please enter your full name.");
+      return;
+    }
+    if (!custPhone.trim()) {
+      setValidationError("Please enter your phone number.");
+      return;
+    }
+    if (!s.pickup.trim()) {
+      setValidationError("Please enter your pickup location.");
+      return;
+    }
+    if (!termsAgreed) {
+      setValidationError("Please agree to the Terms & Conditions.");
+      return;
+    }
+
     setProcessing(true);
 
-    setTimeout(() => {
-      const randomTxn = "TXN" + Math.floor(100000000 + Math.random() * 900000000);
-      const randomBooking = "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000));
-      const nowStr = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+    const scheduleStr = s.timing === "now" ? "Immediate Pickup (As soon as possible)" : `${s.date} at ${s.time}`;
+    const distanceStr = s.tripMetrics?.distanceKm ? `${s.tripMetrics.distanceKm} km` : "As per route";
+    const fareStr = totalAmountStr || "To be confirmed";
 
-      setTxnDetails({
-        txnId: randomTxn,
-        bookingId: randomBooking,
-        amount: totalAmountStr,
-        method: s.payMethod,
-        dateStr: nowStr,
+    const whatsappMessage = `Hello Driv A Long,
+
+I would like to book a chauffeur.
+
+Booking Details
+
+👤 Name:
+${custName.trim()}
+
+📞 Phone:
+${custPhone.trim()}
+
+🚗 Service:
+${s.serviceType}
+
+📍 Pickup Location:
+${s.pickup}
+
+📍 Destination:
+${s.drop || "Flexible / Hourly Route"}
+
+🕒 Schedule:
+${scheduleStr}
+
+⏳ Duration:
+${s.duration}
+
+🚘 Vehicle Transmission:
+${s.transmission === "automatic" ? "Automatic" : "Manual"}
+
+📏 Estimated Distance:
+${distanceStr}
+
+💰 Estimated Fare:
+${fareStr}
+
+Please confirm my booking and contact me.
+
+Thank you.`;
+
+    const whatsappUrl = `https://wa.me/917306605416?text=${encodeURIComponent(whatsappMessage)}`;
+
+    // Save booking state for customer record
+    createBooking({
+      data: {
+        customerId: user?.id,
+        customerEmail: user?.email,
+        customerName: custName.trim(),
+        customerPhone: custPhone.trim(),
+        serviceType: s.serviceType,
+        pickup: { lat: s.pickupCoords?.lat || 9.9312, lng: s.pickupCoords?.lng || 76.2673, address: s.pickup },
+        drop: s.dropCoords ? { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop } : undefined,
+        bookingDate: s.date,
+        bookingTime: s.time,
+        duration: s.duration,
+        transmission: s.transmission,
+        specialInstructions: s.specialInstructions,
+        distanceKm: s.tripMetrics?.distanceKm || 0,
+        durationMinutes: s.tripMetrics?.durationMinutes || 60,
+        paymentMethod: "WhatsApp",
+        fare: fare || {
+          baseFare: serviceDetails.baseFare,
+          ratePerKm: 13,
+          ratePerHour: serviceDetails.ratePerHour,
+          distanceCharge: 0,
+          timeCharge: 0,
+          totalFare: totalAmountNum,
+        },
+      },
+    })
+      .catch((err) => console.error("Error logging WhatsApp booking:", err))
+      .finally(() => {
+        setProcessing(false);
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+        onNext();
       });
-
-      setProcessing(false);
-      setShowModal(true);
-    }, 2500);
-  };
-
-  const handleModalViewBooking = () => {
-    setShowModal(false);
-    onNext();
   };
 
   return (
@@ -470,63 +518,72 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
       <div className="lg:col-span-3 space-y-5">
         <SummaryCard s={s} />
 
-        <div className="rounded-3xl border border-border bg-background p-6 shadow-soft">
-          <h3 className="text-lg font-semibold">Payment Options</h3>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {(["before", "after"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => set("payMode", m)}
-                className={`rounded-2xl border-2 px-4 py-4 text-left transition ${s.payMode === m ? "border-primary bg-primary/5 shadow-soft" : "border-border bg-background hover:border-primary/50"}`}
-              >
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <span className={`h-3 w-3 rounded-full border-2 ${s.payMode === m ? "border-primary bg-primary" : "border-muted-foreground"}`} />
-                  Pay {m === "before" ? "Before" : "After"} Trip
-                </div>
-                <p className="mt-1.5 pl-5 text-xs text-muted-foreground">{m === "before" ? "Card / UPI / Wallet" : "Cash or UPI on completion"}</p>
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-5">
-            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Select Payment Method</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {active.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => set("payMethod", opt)}
-                  className={`inline-flex items-center gap-2 rounded-2xl border-2 px-4 py-2.5 text-sm font-medium transition ${s.payMethod === opt ? "border-primary bg-primary text-primary-foreground shadow-soft" : "border-border bg-background hover:border-primary/50"}`}
-                >
-                  {opt === "Cash" ? <Banknote className="h-4 w-4" /> : opt === "Wallet" ? <Wallet className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <aside className="rounded-3xl border border-border bg-primary p-6 text-primary-foreground shadow-lift lg:col-span-2 flex flex-col justify-between space-y-5">
-        <div>
+        {/* Customer Details Form */}
+        <div className="rounded-3xl border border-border/80 bg-background p-6 shadow-card space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary-foreground/80">Estimated Price</span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur">
-              <Lock className="h-3 w-3 text-emerald-300" /> Secure Checkout
+            <h3 className="text-base font-bold text-foreground">Contact & Booking Confirmation</h3>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
+              <WhatsAppIcon className="h-3.5 w-3.5" /> No Online Payment Required
             </span>
           </div>
 
-          <div className="mt-2 text-4xl font-bold tracking-tight">{totalAmountStr}</div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Enter your details below to send your pre-filled booking request directly to our team on WhatsApp (**+91 7306605416**).
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-bold text-foreground">Your Full Name *</label>
+              <input
+                type="text"
+                required
+                value={custName}
+                onChange={(e) => setCustName(e.target.value)}
+                placeholder="e.g. Rahul Sharma"
+                className="mt-1.5 w-full rounded-2xl border border-border/80 bg-background px-4 py-3 text-xs outline-none transition-all duration-200 focus:border-primary focus:shadow-ring placeholder:text-muted-foreground/60"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-foreground">Phone Number *</label>
+              <input
+                type="tel"
+                required
+                value={custPhone}
+                onChange={(e) => setCustPhone(e.target.value)}
+                placeholder="+91 98450 12345"
+                className="mt-1.5 w-full rounded-2xl border border-border/80 bg-background px-4 py-3 text-xs outline-none transition-all duration-200 focus:border-primary focus:shadow-ring placeholder:text-muted-foreground/60"
+              />
+            </div>
+          </div>
+
+          {validationError && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-semibold text-red-600 flex items-center gap-2">
+              <X className="h-4 w-4 shrink-0" />
+              <span>{validationError}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <aside className="rounded-3xl border border-[#1E4193] bg-[#0B2D7A] p-6 text-white shadow-lift lg:col-span-2 flex flex-col justify-between space-y-5">
+        <div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Estimated Fare</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur">
+              <ShieldCheck className="h-3.5 w-3.5 text-[#F4B400]" /> Verified Service
+            </span>
+          </div>
+
+          <div className="mt-2 text-3xl font-extrabold tracking-tight text-white">{totalAmountStr}</div>
 
           {/* Fare Breakdown */}
-          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-2 text-primary-foreground/90 border border-white/10">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/70 border-b border-white/10 pb-1.5 flex justify-between">
-              <span>Chauffeur Fare Breakdown</span>
+          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-2 text-blue-100/90 border border-white/10">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-blue-200 border-b border-white/10 pb-1.5 flex justify-between">
+              <span>Fare Standard</span>
               <span>Amount</span>
             </div>
             <div className="flex justify-between">
-              <span>Base Service Fee ({s.serviceType})</span>
+              <span>Base Service Fee</span>
               <span>₹{serviceDetails.baseFare}</span>
             </div>
             <div className="flex justify-between">
@@ -539,42 +596,32 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
                 <span>₹{fare.distanceCharge}</span>
               </div>
             )}
-            <div className="flex justify-between border-t border-white/15 pt-2 text-sm font-bold text-white">
-              <span>Total Estimated Price</span>
-              <span>{totalAmountStr}</span>
+            <div className="flex justify-between border-t border-white/15 pt-2 text-xs font-bold text-white">
+              <span>Total Estimated Fare</span>
+              <span className="text-[#F4B400]">{totalAmountStr}</span>
             </div>
           </div>
 
-          {/* Cancellation Policy */}
-          <div className="mt-4 space-y-1.5 text-xs text-primary-foreground/90">
-            <div className="font-semibold text-primary-foreground flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-300" /> Cancellation Policy
+          {/* WhatsApp Direct Notice */}
+          <div className="mt-4 rounded-2xl bg-[#25D366]/15 border border-[#25D366]/30 p-3.5 text-xs text-white space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-[#25D366]">
+              <WhatsAppIcon className="h-4 w-4" /> Direct WhatsApp Booking
             </div>
-            <ul className="space-y-1 pl-1 text-[11px] text-primary-foreground/80">
-              <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" /> Free cancellation within 5 minutes</li>
-              <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-300" /> Cancellation charges may apply after driver assignment</li>
-            </ul>
+            <p className="text-[11px] text-blue-100/80 leading-relaxed">
+              No payment is required right now. Your details will be pre-filled in WhatsApp so you can send your request directly to **+91 7306605416**.
+            </p>
           </div>
 
-          {/* Checkboxes */}
+          {/* Terms Checkbox */}
           <div className="mt-4 space-y-2 text-xs">
             <label className="flex items-start gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={termsAgreed}
                 onChange={(e) => setTermsAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-white/30 bg-white/10 text-primary accent-emerald-400 cursor-pointer"
+                className="mt-0.5 h-4 w-4 rounded border-white/30 bg-white/10 text-primary accent-[#F4B400] cursor-pointer"
               />
-              <span className="text-[11px] text-primary-foreground/90">I agree to the Terms & Conditions</span>
-            </label>
-            <label className="flex items-start gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={policyAgreed}
-                onChange={(e) => setPolicyAgreed(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-white/30 bg-white/10 text-primary accent-emerald-400 cursor-pointer"
-              />
-              <span className="text-[11px] text-primary-foreground/90">I agree to the Cancellation Policy</span>
+              <span className="text-[11px] text-blue-100/90">I agree to the Terms & Cancellation Policy</span>
             </label>
           </div>
         </div>
@@ -582,20 +629,19 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
         <div>
           <button
             type="button"
-            onClick={handleProceedToPay}
-            disabled={!canPay || processing}
-            className={`flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-lift transition ${
-              canPay && !processing ? "bg-white text-primary hover:brightness-105" : "bg-white/30 text-white/60 cursor-not-allowed"
-            }`}
+            onClick={handleBookViaWhatsApp}
+            disabled={processing}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 text-xs font-bold shadow-lift transition-all duration-200 active:scale-98 cursor-pointer"
           >
             {processing ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>Assigning Driver & Processing...</span>
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                <span>Opening WhatsApp...</span>
               </>
             ) : (
               <>
-                Book Driver ({s.payMethod}) <ArrowRight className="h-4 w-4" />
+                <WhatsAppIcon className="h-4.5 w-4.5" />
+                <span>Book via WhatsApp</span>
               </>
             )}
           </button>
@@ -604,73 +650,12 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
             type="button"
             onClick={onBack}
             disabled={processing}
-            className="mt-2 w-full rounded-2xl py-2.5 text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground disabled:opacity-50"
+            className="mt-2.5 w-full rounded-2xl py-2 text-xs font-semibold text-blue-200 hover:text-white transition disabled:opacity-50"
           >
-            Back
+            Back to Duration
           </button>
         </div>
       </aside>
-
-      {/* Payment Success Modal */}
-      {showModal && txnDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-border bg-background p-6 shadow-lift text-center space-y-5 animate-scale-up">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 border-2 border-emerald-500/30">
-              <CheckCircle2 className="h-10 w-10 text-emerald-600" />
-            </div>
-
-            <div>
-              <span className="inline-block rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 mb-1">
-                ✅ Chauffeur Assigned
-              </span>
-              <h3 className="text-xl font-bold tracking-tight text-foreground">Driver Booked Successfully!</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Your professional chauffeur has been assigned for your vehicle.</p>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-subtle p-4 text-xs space-y-2.5 text-left">
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Transaction ID</span>
-                <span className="font-mono font-bold text-foreground">{txnDetails.txnId}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Booking ID</span>
-                <span className="font-mono font-bold text-primary">{txnDetails.bookingId}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Estimated Price</span>
-                <span className="font-bold text-emerald-600 text-sm">{txnDetails.amount}</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-border/60 pb-2">
-                <span className="text-muted-foreground font-medium">Service Type</span>
-                <span className="font-semibold text-foreground">{s.serviceType}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Status</span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> Driver Assigned
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="rounded-2xl border border-border bg-subtle px-4 py-3 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground transition"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={handleModalViewBooking}
-                className="rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-soft hover:brightness-110 transition flex items-center justify-center gap-1.5"
-              >
-                View Booking <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -790,8 +775,8 @@ function StepConfirmation({ s }: { s: State }) {
             <div className="flex-1">
               <h3 className="text-lg font-semibold">Rajesh Kumar</h3>
               <p className="text-xs text-primary font-medium">Professional Chauffeur</p>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Star className="h-3.5 w-3.5 fill-secondary text-secondary" /> 4.98 · 8+ yrs driving experience
+              <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" /> Background Verified Chauffeur
               </div>
             </div>
           </div>
