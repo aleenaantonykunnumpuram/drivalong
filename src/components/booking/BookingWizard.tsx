@@ -36,7 +36,7 @@ interface State {
   tripMetrics: TripMetrics | null;
 }
 
-const STEPS = ["Service", "Pickup", "Schedule", "Duration", "Review & Book", "Confirmed"];
+const STEPS = ["Service", "Pickup", "Schedule", "Review & Book", "Confirmed"];
 
 const SERVICE_ICONS: Record<ServiceType, any> = {
   "One-Way Chauffeur": Compass,
@@ -79,7 +79,7 @@ export function BookingWizard() {
           <Sparkles className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Chauffeur Rental · Your Driver, Your Car</span>
         </div>
         <h1 className="text-xl sm:text-2xl font-semibold tracking-tight md:text-3xl">
-          {s.step < 5 ? "Book a Professional Chauffeur" : "Booking Submitted & Pending Approval"}
+          {s.step < 4 ? "Book a Professional Chauffeur" : "Booking Submitted & Pending Approval"}
         </h1>
         <ProgressBar step={s.step} />
       </div>
@@ -88,9 +88,8 @@ export function BookingWizard() {
         {s.step === 0 && <StepSelectService s={s} set={set} onNext={next} />}
         {s.step === 1 && <StepPickup s={s} set={set} onNext={next} onBack={back} />}
         {s.step === 2 && <StepSchedule s={s} set={set} onNext={next} onBack={back} />}
-        {s.step === 3 && <StepDuration s={s} set={set} onNext={next} onBack={back} />}
-        {s.step === 4 && <StepPayment s={s} set={set} onNext={next} onBack={back} />}
-        {s.step === 5 && <StepConfirmation s={s} />}
+        {s.step === 3 && <StepPayment s={s} set={set} onNext={next} onBack={back} />}
+        {s.step === 4 && <StepConfirmation s={s} />}
       </div>
     </div>
   );
@@ -315,66 +314,12 @@ function StepSchedule({ s, set, onNext, onBack }: { s: State; set: <K extends ke
             </div>
           </div>
         )}
-      </div>
 
-      <div className="flex items-center justify-between">
-        <button onClick={onBack} className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-5 py-3 text-sm font-semibold hover:bg-muted">
-          <ArrowLeft className="h-4 w-4" /> Back
-        </button>
-        <button
-          onClick={onNext}
-          className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
-        >
-          Continue to Duration <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------ Step 4 · Service Duration ------------------------ */
-
-function StepDuration({ s, set, onNext, onBack }: { s: State; set: <K extends keyof State>(k: K, v: State[K]) => void; onNext: () => void; onBack: () => void }) {
-  const durationOptions: DurationOption[] = [
-    "1 Hour",
-    "2 Hours",
-    "4 Hours",
-    "6 Hours",
-    "8 Hours",
-    "12 Hours",
-    "Full Day",
-  ];
-
-  return (
-    <div className="animate-rise space-y-6 max-w-3xl mx-auto">
-      <div className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-5">
-        <div>
-          <h3 className="text-lg font-semibold">Select Service Duration</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">Choose how long you require the chauffeur driver.</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {durationOptions.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => set("duration", opt)}
-              className={`rounded-2xl border-2 p-4 text-center transition ${
-                s.duration === opt ? "border-primary bg-primary text-primary-foreground shadow-soft" : "border-border bg-background hover:border-primary/50"
-              }`}
-            >
-              <div className="text-base font-bold">{opt}</div>
-              <div className={`mt-1 text-[11px] ${s.duration === opt ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                {opt === "Full Day" ? "24 Hours max" : `${DURATION_HOURS[opt]} hrs included`}
-              </div>
-            </button>
-          ))}
-        </div>
-
+        {/* Special Instructions */}
         <div className="pt-2">
           <label className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Special Instructions (Optional)</label>
           <textarea
-            rows={3}
+            rows={2}
             value={s.specialInstructions}
             onChange={(e) => set("specialInstructions", e.target.value)}
             placeholder="e.g. Car model Honda City, child seat needed, or specific parking instructions..."
@@ -391,7 +336,7 @@ function StepDuration({ s, set, onNext, onBack }: { s: State; set: <K extends ke
           onClick={onNext}
           className="inline-flex items-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110"
         >
-          Review & Book <ArrowRight className="h-4 w-4" />
+          Continue to Review & Book <ArrowRight className="h-4 w-4" />
         </button>
       </div>
     </div>
