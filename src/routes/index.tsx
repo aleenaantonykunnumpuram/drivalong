@@ -153,8 +153,8 @@ function Hero() {
 
 function QuickBookSection() {
   return (
-    <section className="py-6 md:py-10">
-      <div className="container-px mx-auto max-w-7xl">
+    <section className="py-8 md:py-12">
+      <div className="container-px mx-auto max-w-4xl">
         <QuickBook />
       </div>
       <TrustBanner />
@@ -163,158 +163,80 @@ function QuickBookSection() {
 }
 
 function QuickBook() {
-  const [tab, setTab] = useState<"hourly" | "oneway" | "outstation">("hourly");
-  const [pickup, setPickup] = useState("");
-  const [destination, setDestination] = useState("");
-  const [duration, setDuration] = useState("4 Hours");
-  const [schedule, setSchedule] = useState("Immediate");
-
   return (
-    <div className="relative rounded-[28px] border border-slate-200/80 bg-white p-6 sm:p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden transition-all duration-300">
+    <div className="relative rounded-[32px] sm:rounded-[36px] border border-slate-200/90 bg-white p-6 sm:p-8 md:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-300">
       {/* Top Accent Line */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1E5AE8] via-[#1E5AE8] to-[#F4B400]" />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      {/* Header Row */}
+      <div className="flex items-start justify-between gap-4">
         <div>
           <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#1E5AE8]">
             QUICK BOOKING
           </span>
-          <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold text-[#0B2D7A] tracking-tight">
+          <h2 className="mt-1.5 text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Request your chauffeur
           </h2>
         </div>
 
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#F4B400] bg-[#FFFDF5] px-4 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/80 bg-[#FFFDF5] px-3.5 py-1 text-xs font-semibold text-slate-800 shadow-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-[#F4B400]" />
             No surge · Transparent fare
           </span>
         </div>
       </div>
 
-      {/* Service Selector */}
-      <div className="mt-6 w-full overflow-x-auto no-scrollbar">
-        <div className="flex w-full sm:w-auto sm:inline-flex items-center gap-1 rounded-full bg-slate-100/80 p-1 border border-slate-200/60 shadow-inner min-w-max">
-          {(["hourly", "oneway", "outstation"] as const).map((t) => {
-            const isActive = tab === t;
-            const label = t === "hourly" ? "Hourly" : t === "oneway" ? "One-Way" : "Outstation";
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`rounded-full px-4 sm:px-6 py-2 sm:py-2.5 text-xs font-bold transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? "bg-white text-[#1E5AE8] shadow-md shadow-slate-200/50"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+      <p className="mt-2 text-xs sm:text-sm font-medium text-slate-500 leading-relaxed max-w-2xl">
+        Tell us the trip details on the next screen — pickup, trip type and vehicle. It takes under 60 seconds.
+      </p>
+
+      {/* Dashed Route Box */}
+      <div className="mt-6 rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 sm:p-6 shadow-inner">
+        <div className="relative flex items-center justify-between px-2">
+          {/* Start Dot */}
+          <div className="relative z-10 flex items-center justify-center h-4 w-4 rounded-full bg-[#1E5AE8] shadow-xs shadow-[#1E5AE8]/40">
+            <div className="h-1.5 w-1.5 rounded-full bg-white" />
+          </div>
+
+          {/* Dashed Line */}
+          <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-[#1E5AE8]" />
+
+          {/* End Dot */}
+          <div className="relative z-10 flex items-center justify-center h-4 w-4 rounded-full bg-[#F4B400] shadow-xs shadow-[#F4B400]/40">
+            <div className="h-1.5 w-1.5 rounded-full bg-white" />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-600 px-1">
+          <span>Your pickup</span>
+          <span>Anywhere</span>
         </div>
       </div>
 
-      {/* Booking Fields Horizontal Row */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3.5 items-stretch">
-        {/* Pickup Location (occupies most width) */}
-        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-3.5 transition-all duration-200 hover:border-[#1E5AE8] focus-within:border-[#1E5AE8] focus-within:ring-2 focus-within:ring-[#1E5AE8]/20 flex items-center gap-3.5 shadow-sm">
-          <span className="h-3 w-3 rounded-full bg-[#1E5AE8] shrink-0" />
-          <div className="min-w-0 flex-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
-              PICKUP LOCATION
-            </label>
-            <input
-              type="text"
-              value={pickup}
-              onChange={(e) => setPickup(e.target.value)}
-              placeholder="Enter pickup location..."
-              className="mt-0.5 w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-            />
-          </div>
+      {/* 3 Feature Badges Row */}
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-slate-200/90 bg-white py-3.5 px-3 text-center flex flex-col sm:flex-row items-center justify-center gap-2 shadow-xs">
+          <ShieldCheck className="h-4 w-4 text-[#1E5AE8] shrink-0" />
+          <span className="text-xs font-bold text-slate-800">Verified</span>
         </div>
 
-        {/* Destination */}
-        <div className="lg:col-span-4 rounded-2xl border border-slate-200/90 bg-white p-3.5 transition-all duration-200 hover:border-[#1E5AE8] focus-within:border-[#1E5AE8] focus-within:ring-2 focus-within:ring-[#1E5AE8]/20 flex items-center gap-3.5 shadow-sm">
-          <span className="h-3 w-3 rounded-full bg-[#F4B400] shrink-0" />
-          <div className="min-w-0 flex-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
-              DESTINATION
-            </label>
-            <input
-              type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder={tab === "hourly" ? "Optional — decided on the go" : "Enter destination address..."}
-              className="mt-0.5 w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 outline-none placeholder:text-slate-400"
-            />
-          </div>
+        <div className="rounded-2xl border border-slate-200/90 bg-white py-3.5 px-3 text-center flex flex-col sm:flex-row items-center justify-center gap-2 shadow-xs">
+          <Clock className="h-4 w-4 text-[#1E5AE8] shrink-0" />
+          <span className="text-xs font-bold text-slate-800">24/7</span>
         </div>
 
-        {/* Duration */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200/90 bg-white p-3.5 transition-all duration-200 hover:border-[#1E5AE8] focus-within:border-[#1E5AE8] flex items-center gap-3 shadow-sm">
-          <Clock className="h-4 w-4 text-slate-400 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
-              DURATION
-            </label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className="mt-0.5 w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 outline-none cursor-pointer"
-            >
-              <option value="2 Hours">2 hours</option>
-              <option value="4 Hours">4 hours</option>
-              <option value="8 Hours">8 hours</option>
-              <option value="Full Day">Full Day (12 hrs)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Schedule */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200/90 bg-white p-3.5 transition-all duration-200 hover:border-[#1E5AE8] focus-within:border-[#1E5AE8] flex items-center gap-3 shadow-sm">
-          <Calendar className="h-4 w-4 text-slate-400 shrink-0" />
-          <div className="min-w-0 flex-1">
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 block">
-              SCHEDULE
-            </label>
-            <select
-              value={schedule}
-              onChange={(e) => setSchedule(e.target.value)}
-              className="mt-0.5 w-full bg-transparent text-xs sm:text-sm font-semibold text-slate-900 outline-none cursor-pointer"
-            >
-              <option value="Immediate">Immediate</option>
-              <option value="In 30 Mins">In 30 mins</option>
-              <option value="Scheduled">Schedule date</option>
-            </select>
-          </div>
+        <div className="rounded-2xl border border-slate-200/90 bg-white py-3.5 px-3 text-center flex flex-col sm:flex-row items-center justify-center gap-2 shadow-xs">
+          <Award className="h-4 w-4 text-[#1E5AE8] shrink-0" />
+          <span className="text-xs font-bold text-slate-800">Manual & auto</span>
         </div>
       </div>
 
-      {/* Bottom Row */}
-      <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-        {/* Left Side Trust Indicators */}
-        <div className="flex flex-wrap items-center gap-5 sm:gap-7 text-xs font-semibold text-slate-600">
-          <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[#1E5AE8]" />
-            Background verified
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Clock className="h-4 w-4 text-[#1E5AE8]" />
-            24/7 support
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Award className="h-4 w-4 text-[#1E5AE8]" />
-            Manual & automatic
-          </span>
-        </div>
-
-        {/* Right Side Primary CTA Button */}
+      {/* Full Width Primary CTA Button */}
+      <div className="mt-6">
         <Link
           to="/book"
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-[#1E5AE8] hover:bg-[#1546bd] text-white px-8 py-3.5 text-xs sm:text-sm font-bold shadow-lift hover:shadow-xl transition-all duration-200 active:scale-98 cursor-pointer"
+          className="w-full inline-flex items-center justify-center gap-2.5 rounded-full bg-[#1E5AE8] hover:bg-[#1546bd] text-white py-4 text-xs sm:text-sm font-bold shadow-lift hover:shadow-xl transition-all duration-200 active:scale-98 cursor-pointer"
         >
           <span>Continue booking</span>
           <ArrowRight className="h-4 w-4" />
