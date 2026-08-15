@@ -16,7 +16,7 @@ export const PRICING = {
 
 export type ServiceType =
   | "One-Way Chauffeur"
-  | "Hourly Chauffeur"
+  | "Round-Trip Chauffeur"
   | "Full-Day Chauffeur"
   | "Airport Chauffeur"
   | "Designated Driver"
@@ -60,12 +60,12 @@ export const CHAUFFEUR_SERVICES: Record<
     ratePerHour: 120,
     ratePerKm: 13,
   },
-  "Hourly Chauffeur": {
-    title: "Hourly Chauffeur",
-    description: "Flexible hourly chauffeur rental for shopping, errands, or multiple stops.",
+  "Round-Trip Chauffeur": {
+    title: "Round-Trip Chauffeur",
+    description: "Two-way driver service for round trips, return journeys, shopping & errands.",
     baseFare: 349,
     ratePerHour: 140,
-    ratePerKm: 0,
+    ratePerKm: 10,
   },
   "Full-Day Chauffeur": {
     title: "Full-Day Chauffeur",
@@ -99,15 +99,15 @@ export const CHAUFFEUR_SERVICES: Record<
     title: "Event Chauffeur",
     description: "Chauffeur service tailored for weddings, family functions, and special events.",
     baseFare: 699,
-    ratePerHour: 150,
-    ratePerKm: 0,
+    ratePerHour: 120,
+    ratePerKm: 10,
   },
   "Outstation Chauffeur": {
     title: "Outstation Chauffeur",
-    description: "Experienced highway driver for long-distance intercity road trips.",
+    description: "Experienced highway drivers for intercity long-distance journeys in your vehicle.",
     baseFare: 999,
-    ratePerHour: 120,
-    ratePerKm: 14,
+    ratePerHour: 80,
+    ratePerKm: 15,
   },
 };
 
@@ -128,9 +128,9 @@ export interface FareBreakdown {
 export function calculateFare(
   distanceKm: number = 0,
   durationMinutes: number = 60,
-  serviceType: ServiceType = "Hourly Chauffeur"
+  serviceType: ServiceType = "Round-Trip Chauffeur"
 ): FareBreakdown {
-  const service = CHAUFFEUR_SERVICES[serviceType] || CHAUFFEUR_SERVICES["Hourly Chauffeur"];
+  const service = CHAUFFEUR_SERVICES[serviceType] || CHAUFFEUR_SERVICES["Round-Trip Chauffeur"];
   const safeDistance = Math.max(0, distanceKm || 0);
   const safeDuration = Math.max(0, durationMinutes || 60);
 

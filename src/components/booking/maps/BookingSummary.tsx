@@ -23,7 +23,7 @@ export function BookingSummary({
   durationText,
   etaLabel,
   fare,
-  serviceType = "Hourly Chauffeur",
+  serviceType = "Round-Trip Chauffeur",
   loading = false,
   ready = true,
   className = "",

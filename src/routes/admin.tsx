@@ -132,7 +132,7 @@ function AdminPanel() {
               customer: t.customerName || t.customerEmail || "Guest Customer",
               customerEmail: t.customerEmail || "",
               driver: t.driverName || "Unassigned",
-              serviceType: t.serviceType || "Hourly Chauffeur",
+              serviceType: t.serviceType || "Round-Trip Chauffeur",
               pickup: t.pickup?.address || "Pickup Location",
               duration: t.duration || "4 Hours",
               price: `₹${rawVal}`,

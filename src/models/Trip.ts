@@ -79,7 +79,7 @@ const TripSchema = new Schema<ITrip>(
     driverId: { type: String },
     driverName: { type: String, default: "Unassigned" },
     driverPhone: { type: String, default: "" },
-    serviceType: { type: String, required: true, default: "Hourly Chauffeur" },
+    serviceType: { type: String, required: true, default: "Round-Trip Chauffeur" },
     pickup: { type: LocationPointSchema, required: true },
     drop: { type: LocationPointSchema, default: null },
     bookingDate: { type: String },

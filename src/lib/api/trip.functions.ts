@@ -8,7 +8,7 @@ import Trip from "../../models/Trip";
 
 const coordsSchema = z.object({ lat: z.number(), lng: z.number() });
 
-const serviceTypeSchema = z.string().default("Hourly Chauffeur");
+const serviceTypeSchema = z.string().default("Round-Trip Chauffeur");
 
 /**
  * POST /api trip estimate — accepts pickup & optional drop coordinates,
@@ -78,7 +78,7 @@ export const createBooking = createServerFn({ method: "POST" })
       customerEmail: z.string().optional(),
       customerName: z.string().optional(),
       customerPhone: z.string().optional(),
-      serviceType: z.string().default("Hourly Chauffeur"),
+      serviceType: z.string().default("Round-Trip Chauffeur"),
       pickup: coordsSchema.extend({ address: z.string() }),
       drop: coordsSchema.extend({ address: z.string() }).optional().nullable(),
       bookingDate: z.string().optional(),

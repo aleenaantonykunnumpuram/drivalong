@@ -38,7 +38,7 @@ const ReviewSchema = new Schema<IReview>(
     rating: { type: Number, required: true, min: 1, max: 5 },
     title: { type: String, default: "" },
     comment: { type: String, required: true, maxlength: 500 },
-    rideType: { type: String, default: "Hourly Chauffeur" },
+    rideType: { type: String, default: "Round-Trip Chauffeur" },
     recommend: { type: Boolean, default: true },
     driverBehavior: {
       professionalism: { type: Number, default: 5 },

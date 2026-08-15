@@ -69,7 +69,7 @@ function CustomerDashboard() {
 
               return {
                 id: t.bookingId,
-                serviceType: t.serviceType || "Hourly Chauffeur",
+                serviceType: t.serviceType || "Round-Trip Chauffeur",
                 pickup: t.pickup?.address || "Pickup Location",
                 destination: t.drop?.address || "Flexible / Hourly Route",
                 date: t.bookingDate || new Date(t.createdAt).toLocaleDateString(),

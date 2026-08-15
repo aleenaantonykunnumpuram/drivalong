@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Compass, Clock, Award, Plane, Shield, Building2, PartyPopper, Navigation, ArrowRight } from "lucide-react";
+import { Compass, RefreshCw, Award, Plane, Shield, Building2, PartyPopper, Navigation, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/services")({
   head: () => ({
     meta: [
       { title: "Chauffeur Services — Driv A Long Private Limited" },
-      { name: "description", content: "Hire professional drivers on demand for your own vehicle. One-Way, Hourly, Full-Day, Airport, Designated Driver, Corporate & Outstation." },
+      { name: "description", content: "Hire professional drivers on demand for your own vehicle. One-Way, Round-Trip, Full-Day, Airport, Designated Driver, Corporate & Outstation." },
       { property: "og:title", content: "Chauffeur Rental Services — Driv A Long Private Limited" },
       { property: "og:description", content: "Professional drivers for your vehicle on demand." },
     ],
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/services")({
 
 const services = [
   { icon: Compass, title: "One-Way Chauffeur", desc: "Hire a professional driver for a single point-to-point trip in your personal car.", price: "Transparent Fare Standard" },
-  { icon: Clock, title: "Hourly Chauffeur", desc: "Flexible hourly driver rental for shopping, errands, or multiple city stops.", price: "Transparent Fare Standard" },
+  { icon: RefreshCw, title: "Round-Trip Chauffeur", desc: "Two-way driver service for round trips, return journeys, shopping & errands.", price: "Transparent Fare Standard" },
   { icon: Award, title: "Full-Day Chauffeur", desc: "Dedicated chauffeur for your vehicle for the entire day (8 to 24 hours).", price: "Transparent Fare Standard" },
   { icon: Plane, title: "Airport Chauffeur", desc: "Reliable airport pickup or drop-off service in the comfort of your own car.", price: "Transparent Fare Standard" },
   { icon: Shield, title: "Designated Driver", desc: "Safe drive home service after parties, events, or nightlife in your vehicle.", price: "Transparent Fare Standard" },

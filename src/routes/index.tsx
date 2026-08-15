@@ -20,6 +20,7 @@ import {
   Phone,
   ShieldCheck,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { WhatsAppIcon, createWhatsAppSupportUrl } from "../components/ui/WhatsAppIcon";
@@ -471,7 +472,7 @@ function WhyChooseUs() {
 function Services() {
   const services = [
     { title: "One-Way Chauffeur", desc: "Point A to B driving service for your personal car.", price: "From ₹299", icon: Compass },
-    { title: "Hourly Chauffeur", desc: "Flexible hourly driver for shopping & errands.", price: "From ₹349", icon: Clock },
+    { title: "Round-Trip Chauffeur", desc: "Two-way driver service for round trips & return journeys.", price: "From ₹349", icon: RefreshCw },
     { title: "Full-Day Chauffeur", desc: "Dedicated driver for 8 to 24 hours.", price: "From ₹1,499", icon: Award },
     { title: "Airport Chauffeur", desc: "Punctual airport pickup/drop in your vehicle.", price: "From ₹499", icon: Plane },
     { title: "Designated Driver", desc: "Safe drive home after parties & nightlife.", price: "From ₹399", icon: Shield },
@@ -676,8 +677,8 @@ function CustomerStories() {
         city: "Kochi",
         rating: 5,
         title: "Genuinely Effortless",
-        comment: "Hired an hourly chauffeur for a weekend of errands. The driver handled my automatic SUV smoothly through heavy traffic — genuinely effortless.",
-        rideType: "Hourly Chauffeur",
+        comment: "Hired a round-trip chauffeur for a weekend of errands. The driver handled my automatic SUV smoothly through heavy traffic — genuinely effortless.",
+        rideType: "Round-Trip Chauffeur",
       },
       {
         reviewId: "REV1002",

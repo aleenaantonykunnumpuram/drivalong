@@ -50,7 +50,7 @@ export function GoogleMapComponent({
   drop = "",
   pickupCoords: propPickupCoords = null,
   dropCoords: propDropCoords = null,
-  serviceType = "Hourly Chauffeur",
+  serviceType = "Round-Trip Chauffeur",
   duration = "4 Hours",
   onPickupChange,
   onDropChange,

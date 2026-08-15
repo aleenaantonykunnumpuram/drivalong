@@ -14,8 +14,8 @@ const INITIAL_VERIFIED_REVIEWS = [
     city: "Kochi",
     rating: 5,
     title: "Genuinely Effortless",
-    comment: "Hired an hourly chauffeur for a weekend of errands. The driver handled my automatic SUV smoothly through heavy traffic — genuinely effortless.",
-    rideType: "Hourly Chauffeur",
+    comment: "Hired a round-trip chauffeur for a weekend of errands. The driver handled my automatic SUV smoothly through heavy traffic — genuinely effortless.",
+    rideType: "Round-Trip Chauffeur",
     recommend: true,
     status: "Approved",
     isApproved: true,
@@ -71,7 +71,7 @@ export const submitReview = createServerFn({ method: "POST" })
       rating: z.number().min(1).max(5),
       title: z.string().optional().default(""),
       comment: z.string().min(3).max(500),
-      rideType: z.string().optional().default("Hourly Chauffeur"),
+      rideType: z.string().optional().default("Round-Trip Chauffeur"),
       recommend: z.boolean().optional().default(true),
       driverBehavior: z
         .object({
@@ -121,7 +121,7 @@ export const submitReview = createServerFn({ method: "POST" })
       rating: data.rating,
       title: data.title,
       comment: data.comment,
-      rideType: data.rideType || (trip ? trip.serviceType : "Hourly Chauffeur"),
+      rideType: data.rideType || (trip ? trip.serviceType : "Round-Trip Chauffeur"),
       recommend: data.recommend,
       driverBehavior: data.driverBehavior,
       status: "Approved", // Auto-approved for verified completed trips

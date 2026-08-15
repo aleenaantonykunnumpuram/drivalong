@@ -4,7 +4,7 @@ import {
   MapPin, Navigation, ArrowRight, ArrowLeft, Car, RouteIcon, Clock, Calendar,
   Users, Briefcase, Snowflake, Cog, CheckCircle2, CreditCard, Wallet, Banknote,
   Star, Phone, MessageSquare, Share2, Download, Home, Sparkles, Zap, Lock, ShieldCheck, Loader2, CheckSquare, Square, X,
-  Shield, UserCheck, Plane, Award, Building2, PartyPopper, Compass, FileText
+  Shield, UserCheck, Plane, Award, Building2, PartyPopper, Compass, FileText, RefreshCw
 } from "lucide-react";
 import { GoogleMapComponent, type TripMetrics } from "./maps/GoogleMapComponent";
 import { formatCurrency, CHAUFFEUR_SERVICES, DURATION_HOURS, type ServiceType, type DurationOption } from "./maps/fareUtils";
@@ -40,7 +40,7 @@ const STEPS = ["Service", "Pickup", "Schedule", "Duration", "Review & Book", "Co
 
 const SERVICE_ICONS: Record<ServiceType, any> = {
   "One-Way Chauffeur": Compass,
-  "Hourly Chauffeur": Clock,
+  "Round-Trip Chauffeur": RefreshCw,
   "Full-Day Chauffeur": Award,
   "Airport Chauffeur": Plane,
   "Designated Driver": Shield,
@@ -52,7 +52,7 @@ const SERVICE_ICONS: Record<ServiceType, any> = {
 export function BookingWizard() {
   const [s, setS] = useState<State>({
     step: 0,
-    serviceType: "Hourly Chauffeur",
+    serviceType: "Round-Trip Chauffeur",
     pickup: "",
     drop: "",
     pickupCoords: null,
@@ -410,7 +410,7 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   const [processing, setProcessing] = useState(false);
   const [validationError, setValidationError] = useState("");
 
-  const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Hourly Chauffeur"];
+  const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Round-Trip Chauffeur"];
   const durationHours = DURATION_HOURS[s.duration] || 4;
 
   const fare = s.tripMetrics?.fare;
