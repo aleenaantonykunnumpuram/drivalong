@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Facebook, Instagram, Linkedin, Twitter, MapPin, Phone, Mail, ArrowUp } from "lucide-react";
+import { Instagram, Linkedin, MapPin, Phone, Mail, ArrowUp } from "lucide-react";
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -58,14 +58,15 @@ export function Footer() {
               >
                 <Linkedin className="h-4 w-4" />
               </a>
-              <a href="#" aria-label="Twitter" className="grid h-10 w-10 place-items-center rounded-xl border border-blue-400/30 bg-[#143B93] text-white transition-all duration-200 hover:border-[#F4B400] hover:text-[#F4B400] hover:scale-105">
-                <Twitter className="h-4 w-4" />
-              </a>
-              <a href="#" aria-label="Instagram" className="grid h-10 w-10 place-items-center rounded-xl border border-blue-400/30 bg-[#143B93] text-white transition-all duration-200 hover:border-[#F4B400] hover:text-[#F4B400] hover:scale-105">
+              <a
+                href="https://www.instagram.com/_driv_a_long?stkn=bjJyamxidjVzdHlp"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Driv A Long Private Limited Instagram"
+                title="Driv A Long Private Limited on Instagram"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-blue-400/30 bg-[#143B93] text-white transition-all duration-200 hover:border-[#F4B400] hover:text-[#F4B400] hover:scale-105"
+              >
                 <Instagram className="h-4 w-4" />
-              </a>
-              <a href="#" aria-label="Facebook" className="grid h-10 w-10 place-items-center rounded-xl border border-blue-400/30 bg-[#143B93] text-white transition-all duration-200 hover:border-[#F4B400] hover:text-[#F4B400] hover:scale-105">
-                <Facebook className="h-4 w-4" />
               </a>
             </div>
           </div>
