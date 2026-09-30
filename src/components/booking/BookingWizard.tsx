@@ -412,9 +412,6 @@ ${s.drop || "Flexible / Hourly Route"}
 🕒 Schedule:
 ${scheduleStr}
 
-⏳ Duration:
-${s.duration}
-
 🚘 Vehicle Transmission:
 ${s.transmission === "automatic" ? "Automatic" : "Manual"}
 
@@ -621,9 +618,8 @@ function SummaryCard({ s }: { s: State }) {
         <SummaryRow k="Service" v={s.serviceType} dot="primary" />
         <SummaryRow k="Pickup" v={s.pickup || "Not selected"} dot="primary" />
         <SummaryRow k="Destination" v={s.drop || "Optional (As per direction)"} dot="secondary" />
-        <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3">
           <Meta k="Transmission" v={s.transmission} />
-          <Meta k="Duration" v={s.duration} />
           <Meta k="Schedule" v={s.timing === "now" ? "Immediate Pickup" : `${s.date} · ${s.time}`} />
           <Meta k="Distance" v={s.tripMetrics ? `${s.tripMetrics.distanceKm} km` : "—"} />
         </div>
@@ -726,7 +722,7 @@ function StepConfirmation({ s }: { s: State }) {
     toast.success(`Ride Summary Receipt generated for ${bookingId}`);
   };
 
-  const whatsappMessage = `Hello Driv A Long Team,\n\nI have submitted a booking request on your website and would like confirmation & payment details.\n\n*Booking ID:* ${bookingId}\n*Service:* ${s.serviceType}\n*Pickup:* ${s.pickup || "Pickup Location"}\n*Duration:* ${s.duration}\n\nPlease assist me with approval. Thank you!`;
+  const whatsappMessage = `Hello Driv A Long Team,\n\nI have submitted a booking request on your website and would like confirmation & payment details.\n\n*Booking ID:* ${bookingId}\n*Service:* ${s.serviceType}\n*Pickup:* ${s.pickup || "Pickup Location"}\n\nPlease assist me with approval. Thank you!`;
   const whatsappUrl = `https://wa.me/917306605416?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
@@ -782,7 +778,7 @@ function StepConfirmation({ s }: { s: State }) {
 
             <div className="grid grid-cols-2 gap-3 text-xs border-t border-border pt-4">
               <Meta k="Service Type" v={s.serviceType} />
-              <Meta k="Duration" v={s.duration} />
+              <Meta k="Payment Status" v="Pending Approval" />
               <Meta k="Driver Status" v="Pending Admin Approval" />
               <Meta k="Contact Us / Support" v="+91 7306605416" />
             </div>
@@ -834,14 +830,10 @@ function StepConfirmation({ s }: { s: State }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 divide-x divide-border border-t border-border bg-background text-center text-xs">
+          <div className="grid grid-cols-2 divide-x divide-border border-t border-border bg-background text-center text-xs">
             <div className="p-4">
               <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Service</div>
               <div className="mt-1 font-bold truncate text-foreground">{s.serviceType}</div>
-            </div>
-            <div className="p-4">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Duration</div>
-              <div className="mt-1 font-bold text-foreground">{s.duration}</div>
             </div>
             <div className="p-4">
               <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Estimated Fare</div>

@@ -70,7 +70,7 @@ export function BookingSummary({
       ) : (
         <>
           {/* Metrics Row */}
-          <div className="grid grid-cols-3 gap-2.5 rounded-2xl bg-subtle p-3.5 text-xs">
+          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-subtle p-3.5 text-xs">
             <div className="flex flex-col items-start gap-1.5">
               <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-background text-primary shadow-soft">
                 <RouteIcon className="h-4 w-4" />
@@ -80,16 +80,6 @@ export function BookingSummary({
                 <p className="font-semibold text-foreground">
                   {displayDist || (loading ? "…" : "—")}
                 </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-start gap-1.5">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-background text-primary shadow-soft">
-                <Clock className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Duration</p>
-                <p className="font-semibold text-foreground">{displayDuration || (loading ? "…" : "—")}</p>
               </div>
             </div>
 
@@ -122,7 +112,7 @@ export function BookingSummary({
                 <span>{fare ? formatCurrency(fare.baseFare) : "₹299"}</span>
               </div>
               <div className="flex justify-between">
-                <span>Duration Charge ({fare ? (fare.durationMinutes / 60).toFixed(1) : "4.0"} hrs)</span>
+                <span>Duration Charge</span>
                 <span>{fare ? formatCurrency(fare.timeCharge) : "—"}</span>
               </div>
               {fare && fare.distanceKm > 0 && (
