@@ -62,21 +62,6 @@ export const signUpCustomerFn = createServerFn({ method: "POST" })
         return { success: false, message: passCheck.message || "Invalid password format." };
       }
 
-      if (typeof window !== "undefined") {
-        return {
-          success: true,
-          message: "Account created successfully!",
-          user: {
-            id: "CUST_" + Date.now(),
-            name: name.trim(),
-            email: email.toLowerCase().trim(),
-            phone: phone.trim(),
-            role: "customer",
-            createdAt: new Date().toISOString(),
-          },
-        };
-      }
-
       const { connectToDatabase } = await import("./mongodb");
       const Customer = (await import("../models/Customer")).default;
       const bcryptModule = await import("bcryptjs");
@@ -109,22 +94,14 @@ export const signUpCustomerFn = createServerFn({ method: "POST" })
           email: newCustomer.email,
           phone: newCustomer.phone,
           role: newCustomer.role,
-          createdAt: newCustomer.createdAt.toISOString(),
+          createdAt: newCustomer.createdAt ? newCustomer.createdAt.toISOString() : new Date().toISOString(),
         },
       };
     } catch (error: any) {
       console.error("Sign up error:", error);
       return {
-        success: true,
-        message: "Account created successfully!",
-        user: {
-          id: "CUST_" + Date.now(),
-          name: data.name || "Customer",
-          email: data.email,
-          phone: data.phone,
-          role: "customer",
-          createdAt: new Date().toISOString(),
-        },
+        success: false,
+        message: error.message || "Failed to create account in database. Please check your database connection.",
       };
     }
   });
@@ -200,21 +177,6 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
 
     // 3. Dynamic Server-side MongoDB Check
     try {
-      if (typeof window !== "undefined") {
-        return {
-          success: true,
-          message: "Signed in successfully!",
-          user: {
-            id: "USER_" + Date.now(),
-            name: cleanEmail.split("@")[0] || "User",
-            email: cleanEmail,
-            phone: "+91 98765 43210",
-            role: userRole,
-            createdAt: new Date().toISOString(),
-          },
-        };
-      }
-
       const { connectToDatabase } = await import("./mongodb");
       const Customer = (await import("../models/Customer")).default;
       const bcryptModule = await import("bcryptjs");
@@ -247,16 +209,8 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
     } catch (error: any) {
       console.error("Sign in error:", error);
       return {
-        success: true,
-        message: "Signed in successfully!",
-        user: {
-          id: "USER_" + Date.now(),
-          name: cleanEmail.split("@")[0] || "User",
-          email: cleanEmail,
-          phone: "+91 98765 43210",
-          role: userRole,
-          createdAt: new Date().toISOString(),
-        },
+        success: false,
+        message: error.message || "Failed to sign in. Please verify your connection.",
       };
     }
   });
