@@ -332,11 +332,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url === "/api/bookings") {
     try {
       const payload = await readJsonBody(req);
-      const { pickup, drop, vehicleType, distanceKm, durationMinutes, durationInTrafficMinutes, etaTime, routePolyline, fare } = payload;
+      const { customerId, customerEmail, pickup, drop, vehicleType, distanceKm, durationMinutes, durationInTrafficMinutes, etaTime, routePolyline, fare } = payload;
 
       if (!pickup || !drop || !fare) {
         res.writeHead(400, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ success: false, message: "pickup, drop and fare are required." }));
+        return;
+      }
+
+      if (!customerEmail && !customerId) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, message: "Authentication required: Customer must be logged in to book a chauffeur." }));
         return;
       }
 

@@ -87,7 +87,12 @@ function SignUp() {
       if (res.success && res.user) {
         setStoredUser(res.user);
         toast.success("Account created successfully! Saved to MongoDB.");
-        navigate({ to: "/" });
+        const redirectParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null;
+        if (redirectParam) {
+          navigate({ to: redirectParam });
+        } else {
+          navigate({ to: "/" });
+        }
       } else {
         setErrorMsg(res.message || "Failed to create account.");
         toast.error(res.message || "Sign up failed.");
@@ -242,7 +247,11 @@ function SignUp() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="font-semibold text-primary hover:underline">
+            <Link
+              to="/login"
+              search={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("redirect") ? { redirect: new URLSearchParams(window.location.search).get("redirect")! } : undefined}
+              className="font-semibold text-primary hover:underline"
+            >
               Sign in
             </Link>
           </p>

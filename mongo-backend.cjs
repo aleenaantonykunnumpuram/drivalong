@@ -415,6 +415,12 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      if (!customerEmail && !customerId) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ success: false, message: "Authentication required: Customer must be logged in to book a chauffeur." }));
+        return;
+      }
+
       const bookingId = "DAL" + Math.floor(100000 + Math.random() * 900000);
 
       const trip = await Trip.create({

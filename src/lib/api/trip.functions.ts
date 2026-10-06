@@ -105,11 +105,15 @@ export const createBooking = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await connectToDatabase();
 
+    if (!data.customerEmail && !data.customerId) {
+      throw new Error("Authentication required: You must be logged in to book a chauffeur.");
+    }
+
     const bookingId = "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000));
 
     const trip = await Trip.create({
       bookingId,
-      customerId: data.customerId || "CUST_DEMO_01",
+      customerId: data.customerId,
       customerEmail: data.customerEmail ? data.customerEmail.toLowerCase().trim() : "",
       customerName: data.customerName || "Customer",
       customerPhone: data.customerPhone || "",

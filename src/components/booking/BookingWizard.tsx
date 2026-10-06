@@ -50,6 +50,7 @@ const SERVICE_ICONS: Record<ServiceType, any> = {
 };
 
 export function BookingWizard() {
+  const { user } = useAuthUser();
   const [s, setS] = useState<State>({
     step: 0,
     serviceType: "Round-Trip Chauffeur",
@@ -71,6 +72,43 @@ export function BookingWizard() {
   const set = <K extends keyof State>(k: K, v: State[K]) => setS((p) => ({ ...p, [k]: v }));
   const next = () => setS((p) => ({ ...p, step: Math.min(p.step + 1, STEPS.length - 1) }));
   const back = () => setS((p) => ({ ...p, step: Math.max(p.step - 1, 0) }));
+
+  if (!user) {
+    return (
+      <div className="rounded-[24px] sm:rounded-[28px] border border-border bg-background p-8 sm:p-12 shadow-lift text-center space-y-6">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <Lock className="h-8 w-8" />
+        </div>
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600">
+            <ShieldCheck className="h-3.5 w-3.5" /> Customer Login Required
+          </span>
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
+            Sign In to Book a Chauffeur
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
+            You must be logged in to your customer account to choose a service, configure pickup locations, and book a chauffeur.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2 max-w-md mx-auto">
+          <Link
+            to="/login"
+            search={{ redirect: "/book" }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-soft hover:brightness-110 active:scale-98 transition-all"
+          >
+            <Lock className="h-4 w-4" /> Sign In to Book
+          </Link>
+          <Link
+            to="/signup"
+            search={{ redirect: "/book" }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-border bg-background px-6 py-3.5 text-sm font-bold text-foreground shadow-sm hover:bg-muted active:scale-98 transition-all"
+          >
+            Create Account
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-[24px] sm:rounded-[28px] border border-border bg-background shadow-lift w-full max-w-full overflow-hidden">
@@ -355,6 +393,13 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   const [processing, setProcessing] = useState(false);
   const [validationError, setValidationError] = useState("");
 
+  useEffect(() => {
+    if (user) {
+      if (!custName && user.name) setCustName(user.name);
+      if (!custPhone && user.phone) setCustPhone(user.phone);
+    }
+  }, [user]);
+
   const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Round-Trip Chauffeur"];
   const durationHours = DURATION_HOURS[s.duration] || 4;
 
@@ -364,6 +409,12 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
 
   const handleBookViaWhatsApp = () => {
     setValidationError("");
+
+    if (!user) {
+      setValidationError("Authentication required: Please sign in before submitting a booking.");
+      toast.error("Please log in to book a chauffeur.");
+      return;
+    }
 
     if (!custName.trim()) {
       setValidationError("Please enter your full name.");
@@ -430,10 +481,10 @@ Thank you.`;
     // Save booking state for customer record
     createBooking({
       data: {
-        customerId: user?.id,
-        customerEmail: user?.email,
-        customerName: custName.trim(),
-        customerPhone: custPhone.trim(),
+        customerId: user.id,
+        customerEmail: user.email,
+        customerName: custName.trim() || user.name,
+        customerPhone: custPhone.trim() || user.phone,
         serviceType: s.serviceType,
         pickup: { lat: s.pickupCoords?.lat || 9.9312, lng: s.pickupCoords?.lng || 76.2673, address: s.pickup },
         drop: s.dropCoords ? { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop } : undefined,
@@ -470,11 +521,18 @@ Thank you.`;
 
         {/* Customer Details Form */}
         <div className="rounded-3xl border border-border/80 bg-background p-6 shadow-card space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-base font-bold text-foreground">Contact & Booking Confirmation</h3>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
-              <WhatsAppIcon className="h-3.5 w-3.5" /> No Online Payment Required
-            </span>
+            <div className="flex items-center gap-2">
+              {user && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Logged in: {user.name}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-600">
+                <WhatsAppIcon className="h-3.5 w-3.5" /> No Online Payment Required
+              </span>
+            </div>
           </div>
 
           <p className="text-xs text-muted-foreground leading-relaxed">
@@ -660,16 +718,16 @@ function StepConfirmation({ s }: { s: State }) {
   const hasSubmittedRef = useRef(false);
 
   useEffect(() => {
-    if (!s.pickupCoords || hasSubmittedRef.current) return;
+    if (!user || !s.pickupCoords || hasSubmittedRef.current) return;
     hasSubmittedRef.current = true;
 
     let cancelled = false;
     createBooking({
       data: {
-        customerId: user?.id,
-        customerEmail: user?.email,
-        customerName: user?.name,
-        customerPhone: user?.phone,
+        customerId: user.id,
+        customerEmail: user.email,
+        customerName: user.name,
+        customerPhone: user.phone,
         serviceType: s.serviceType,
         pickup: { lat: s.pickupCoords.lat, lng: s.pickupCoords.lng, address: s.pickup || "Pickup Location" },
         drop: s.dropCoords ? { lat: s.dropCoords.lat, lng: s.dropCoords.lng, address: s.drop } : undefined,

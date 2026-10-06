@@ -97,10 +97,13 @@ function Login() {
       if (res && res.success && res.user) {
         setStoredUser(res.user);
         toast.success(`Welcome back, ${res.user.name}!`);
+        const redirectParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("redirect") : null;
         if (res.user.role === "admin") {
           navigate({ to: "/admin" });
         } else if (res.user.role === "rider" || res.user.role === "driver") {
           navigate({ to: "/driver" });
+        } else if (redirectParam) {
+          navigate({ to: redirectParam });
         } else {
           navigate({ to: "/dashboard" });
         }
@@ -252,7 +255,14 @@ function Login() {
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            New to Driv A Long? <Link to="/signup" className="font-semibold text-primary hover:underline">Create account</Link>
+            New to Driv A Long?{" "}
+            <Link
+              to="/signup"
+              search={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("redirect") ? { redirect: new URLSearchParams(window.location.search).get("redirect")! } : undefined}
+              className="font-semibold text-primary hover:underline"
+            >
+              Create account
+            </Link>
           </p>
         </div>
       </div>
