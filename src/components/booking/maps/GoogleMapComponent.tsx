@@ -227,18 +227,9 @@ export function GoogleMapComponent({
     if (!pickup || pickup.trim().length < 3 || pickupVerified) return;
 
     const timer = setTimeout(async () => {
-      if (window.google?.maps?.Geocoder && isLoaded) {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ address: pickup }, (results, status) => {
-          if (status === "OK" && results && results[0]) {
-            const loc = results[0].geometry.location;
-            const coords = { lat: loc.lat(), lng: loc.lng() };
-            handlePickupChange(pickup, coords, true);
-          }
-        });
-      } else {
+      const fallbackGeocode = async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&limit=1`);
           const data = await res.json();
           if (data && data[0]) {
             const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -247,8 +238,27 @@ export function GoogleMapComponent({
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
         }
+      };
+
+      if (window.google?.maps?.Geocoder && isLoaded) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ address: pickup }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              const loc = results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              handlePickupChange(pickup, coords, true);
+            } else {
+              fallbackGeocode();
+            }
+          });
+        } catch {
+          fallbackGeocode();
+        }
+      } else {
+        fallbackGeocode();
       }
-    }, 600);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [pickup, pickupVerified, isLoaded, handlePickupChange]);
@@ -258,18 +268,9 @@ export function GoogleMapComponent({
     if (!drop || drop.trim().length < 3 || dropVerified) return;
 
     const timer = setTimeout(async () => {
-      if (window.google?.maps?.Geocoder && isLoaded) {
-        const geocoder = new window.google.maps.Geocoder();
-        geocoder.geocode({ address: drop }, (results, status) => {
-          if (status === "OK" && results && results[0]) {
-            const loc = results[0].geometry.location;
-            const coords = { lat: loc.lat(), lng: loc.lng() };
-            handleDropChange(drop, coords, true);
-          }
-        });
-      } else {
+      const fallbackGeocode = async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}&limit=1`);
           const data = await res.json();
           if (data && data[0]) {
             const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -278,8 +279,27 @@ export function GoogleMapComponent({
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
         }
+      };
+
+      if (window.google?.maps?.Geocoder && isLoaded) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ address: drop }, (results, status) => {
+            if (status === "OK" && results && results[0]) {
+              const loc = results[0].geometry.location;
+              const coords = { lat: loc.lat(), lng: loc.lng() };
+              handleDropChange(drop, coords, true);
+            } else {
+              fallbackGeocode();
+            }
+          });
+        } catch {
+          fallbackGeocode();
+        }
+      } else {
+        fallbackGeocode();
       }
-    }, 600);
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [drop, dropVerified, isLoaded, handleDropChange]);
