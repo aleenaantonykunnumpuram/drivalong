@@ -1,46 +1,43 @@
 import React from "react";
-import { Clock, RouteIcon, UserCheck, ShieldCheck, Timer, Loader2 } from "lucide-react";
-import { formatCurrency, type FareBreakdown } from "./fareUtils";
+import { UserCheck, ShieldCheck, Sparkles } from "lucide-react";
+import { formatCurrency, CHAUFFEUR_SERVICES, type ServiceType } from "./fareUtils";
 
 interface BookingSummaryProps {
   pickup: string;
   drop?: string;
-  distanceKm: number;
-  durationMinutes?: number;
-  durationText: string;
-  etaLabel?: string;
-  fare: FareBreakdown | null;
   serviceType?: string;
+  className?: string;
+  // Optional props preserved for backward compatibility
+  distanceKm?: number;
+  durationMinutes?: number;
+  durationText?: string;
+  etaLabel?: string;
+  fare?: any;
   loading?: boolean;
   ready?: boolean;
-  className?: string;
 }
 
 export function BookingSummary({
   pickup,
   drop = "",
-  distanceKm,
-  durationText,
-  etaLabel,
-  fare,
   serviceType = "Round-Trip Chauffeur",
-  loading = false,
-  ready = true,
   className = "",
 }: BookingSummaryProps) {
-  const distVal = distanceKm > 0 ? distanceKm : fare && fare.distanceKm > 0 ? fare.distanceKm : 0;
-  const displayDist = distVal > 0 ? `${distVal} km` : drop ? "Calculating..." : "Flexible Route";
-  const displayDuration = durationText || (fare ? `${fare.durationMinutes} min` : null);
-  const displayEta = etaLabel || (fare ? new Date(Date.now() + fare.durationMinutes * 60_000).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null);
+  const serviceDetails =
+    CHAUFFEUR_SERVICES[serviceType as ServiceType] ||
+    CHAUFFEUR_SERVICES["Round-Trip Chauffeur"];
+
+  const baseFare = serviceDetails?.baseFare ?? 299;
 
   return (
     <div className={`rounded-3xl border border-border bg-background p-5 shadow-soft space-y-4 ${className}`}>
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-          <UserCheck className="h-4 w-4" /> Chauffeur Estimate
+          <UserCheck className="h-4 w-4" /> Service Details
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-          <ShieldCheck className="h-3 w-3" /> Upfront Price
+          <ShieldCheck className="h-3 w-3" /> Base Fee
         </span>
       </div>
 
@@ -50,86 +47,39 @@ export function BookingSummary({
           <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">Pickup Location</p>
-            <p className="font-medium text-foreground truncate">{pickup || "Not selected"}</p>
+            <p className="font-medium text-foreground truncate">{pickup || "Enter your pickup location above"}</p>
           </div>
         </div>
 
         <div className="flex items-start gap-3 min-w-0">
-          <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
+          <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-sm bg-amber-500" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold uppercase tracking-wider text-muted-foreground text-[10px]">Destination</p>
-            <p className="font-medium text-foreground truncate">{drop || "Optional (Flexible Route)"}</p>
+            <p className="font-medium text-foreground truncate">{drop || "Flexible Route (Optional)"}</p>
           </div>
         </div>
       </div>
 
-      {!ready ? (
-        <div className="rounded-2xl bg-subtle p-4 text-center text-xs text-muted-foreground">
-          Select a pickup address from suggestions to calculate chauffeur estimate.
+      {/* Base Service Fee Only */}
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-foreground flex items-center gap-1.5 capitalize text-sm">
+            <Sparkles className="h-4 w-4 text-primary" /> {serviceDetails?.title || serviceType}
+          </span>
+          <span className="text-lg font-bold text-primary">
+            {formatCurrency(baseFare)}
+          </span>
         </div>
-      ) : (
-        <>
-          {/* Metrics Row */}
-          <div className="grid grid-cols-2 gap-3 rounded-2xl bg-subtle p-3.5 text-xs">
-            <div className="flex flex-col items-start gap-1.5">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-background text-primary shadow-soft">
-                <RouteIcon className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Distance</p>
-                <p className="font-semibold text-foreground">
-                  {displayDist || (loading ? "…" : "—")}
-                </p>
-              </div>
-            </div>
 
-            <div className="flex flex-col items-start gap-1.5">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-background text-primary shadow-soft">
-                <Timer className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold uppercase text-muted-foreground">Arrival (ETA)</p>
-                <p className="font-semibold text-foreground">{displayEta || (loading ? "…" : "—")}</p>
-              </div>
-            </div>
-          </div>
+        <div className="border-t border-primary/10 pt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>Base Service Fee</span>
+          <span className="font-bold text-foreground text-sm">{formatCurrency(baseFare)}</span>
+        </div>
 
-          {/* Dynamic Fare Calculation Box */}
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground flex items-center gap-1.5 capitalize">
-                <UserCheck className="h-4 w-4 text-primary" /> {serviceType}
-              </span>
-              <span className="text-base font-bold text-primary flex items-center gap-1.5">
-                {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {fare ? formatCurrency(fare.totalFare) : "—"}
-              </span>
-            </div>
-
-            <div className="border-t border-primary/10 pt-2 text-[11px] text-muted-foreground space-y-1">
-              <div className="flex justify-between">
-                <span>Base Service Fee</span>
-                <span>{fare ? formatCurrency(fare.baseFare) : "₹299"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Duration Charge</span>
-                <span>{fare ? formatCurrency(fare.timeCharge) : "—"}</span>
-              </div>
-              {fare && fare.distanceKm > 0 && (
-                <div className="flex justify-between">
-                  <span>Distance Charge ({fare.distanceKm} km)</span>
-                  <span>{formatCurrency(fare.distanceCharge)}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-primary/20 pt-2 text-sm font-bold text-foreground">
-              <span>Total Estimated Price</span>
-              <span className="text-primary">{fare ? formatCurrency(fare.totalFare) : "—"}</span>
-            </div>
-          </div>
-        </>
-      )}
+        <p className="text-[11px] text-muted-foreground pt-1 leading-relaxed">
+          Standard chauffeur base fee for this service. Driver allocation and route tracking will be activated upon booking.
+        </p>
+      </div>
     </div>
   );
 }
