@@ -17,7 +17,7 @@ const searchSchema = z.object({
  * Server-side place search function (executed in Node.js, bypasses browser CORS).
  * Uses Komoot Photon with Kerala proximity bias + fallback to Nominatim.
  */
-export const searchPlacesServerFn = createServerFn({ method: "GET" })
+export const searchPlacesServerFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => searchSchema.parse(data))
   .handler(async ({ data }): Promise<PlaceResult[]> => {
     const cleanQ = (data.query || "").trim();

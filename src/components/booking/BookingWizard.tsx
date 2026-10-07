@@ -240,11 +240,11 @@ function StepPickup({ s, set, onNext, onBack }: { s: State; set: <K extends keyo
         duration={s.duration}
         onPickupChange={(val, coords) => {
           set("pickup", val);
-          if (coords) set("pickupCoords", coords);
+          set("pickupCoords", coords ?? null);
         }}
         onDropChange={(val, coords) => {
           set("drop", val);
-          if (coords) set("dropCoords", coords);
+          set("dropCoords", coords ?? null);
         }}
         onLocationsChanged={handleLocationsChanged}
         onMetricsCalculated={(metrics) => set("tripMetrics", metrics)}

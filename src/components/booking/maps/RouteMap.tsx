@@ -228,37 +228,54 @@ export function RouteMap({
 
     // Draw route path between Pickup and Drop
     if (pickupCoords && dropCoords) {
-      let routePoints: [number, number][] = [];
-
+      // 1. Immediately draw initial route so there is zero delay
+      let initialRoute: [number, number][] = createCurvedRoute(pickupCoords, dropCoords);
       if (routePolyline && routePolyline.length > 5) {
         try {
-          routePoints = decodePolyline(routePolyline);
+          initialRoute = decodePolyline(routePolyline);
         } catch {
-          routePoints = createCurvedRoute(pickupCoords, dropCoords);
+          // fallback to curved
         }
-      } else {
-        routePoints = createCurvedRoute(pickupCoords, dropCoords);
       }
 
-      if (routePoints.length > 0) {
-        // Casing polyline (darker border for contrast)
-        L.polyline(routePoints, {
-          color: "#0F3DA6",
-          weight: 7,
-          opacity: 0.8,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(group);
+      const casing = L.polyline(initialRoute, {
+        color: "#0F3DA6",
+        weight: 7,
+        opacity: 0.8,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(group);
 
-        // Core polyline (vibrant blue)
-        L.polyline(routePoints, {
-          color: "#2563EB",
-          weight: 4,
-          opacity: 0.95,
-          lineCap: "round",
-          lineJoin: "round",
-        }).addTo(group);
-      }
+      const core = L.polyline(initialRoute, {
+        color: "#2563EB",
+        weight: 4,
+        opacity: 0.95,
+        lineCap: "round",
+        lineJoin: "round",
+      }).addTo(group);
+
+      // 2. Asynchronously fetch actual driving road geometry from OSRM (free, exact road paths)
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pickupCoords.lng},${pickupCoords.lat};${dropCoords.lng},${dropCoords.lat}?overview=full&geometries=geojson`;
+      fetch(osrmUrl, { signal: AbortSignal.timeout(4000) })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.routes?.[0]?.geometry?.coordinates?.length) {
+            const roadPoints: [number, number][] = data.routes[0].geometry.coordinates.map(
+              (c: [number, number]) => [c[1], c[0]]
+            );
+            casing.setLatLngs(roadPoints);
+            core.setLatLngs(roadPoints);
+
+            // Fit to real road bounds
+            if (mapInstanceRef.current) {
+              const roadBounds = L.latLngBounds(roadPoints);
+              mapInstanceRef.current.fitBounds(roadBounds, { padding: [55, 55], maxZoom: 15, animate: true });
+            }
+          }
+        })
+        .catch(() => {
+          // Gracefully keep the curved line
+        });
     }
 
     // Fit map bounds

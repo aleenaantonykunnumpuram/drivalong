@@ -77,6 +77,9 @@ export function GoogleMapComponent({
     if (propPickupCoords) {
       setPickupCoords(propPickupCoords);
       setPickupVerified(true);
+    } else {
+      setPickupCoords(null);
+      setPickupVerified(false);
     }
   }, [propPickupCoords]);
 
@@ -84,35 +87,34 @@ export function GoogleMapComponent({
     if (propDropCoords) {
       setDropCoords(propDropCoords);
       setDropVerified(true);
+    } else {
+      setDropCoords(null);
+      setDropVerified(false);
     }
   }, [propDropCoords]);
 
   const handlePickupChange = useCallback(
     (val: string, coords?: Coords, verified?: boolean) => {
-      if (coords) {
-        setPickupCoords(coords);
-        setPickupVerified(Boolean(verified));
-      }
+      setPickupCoords(coords ?? null);
+      setPickupVerified(Boolean(verified));
       if (onPickupChange) onPickupChange(val, coords, verified);
       if (onLocationsChangedRef.current) {
-        onLocationsChangedRef.current(val, drop, coords || pickupCoords, dropCoords, metrics);
+        onLocationsChangedRef.current(val, drop, coords ?? null, dropCoords, metrics);
       }
     },
-    [onPickupChange, drop, pickupCoords, dropCoords, metrics]
+    [onPickupChange, drop, dropCoords, metrics]
   );
 
   const handleDropChange = useCallback(
     (val: string, coords?: Coords, verified?: boolean) => {
-      if (coords) {
-        setDropCoords(coords);
-        setDropVerified(Boolean(verified));
-      }
+      setDropCoords(coords ?? null);
+      setDropVerified(Boolean(verified));
       if (onDropChange) onDropChange(val, coords, verified);
       if (onLocationsChangedRef.current) {
-        onLocationsChangedRef.current(pickup, val, pickupCoords, coords || dropCoords, metrics);
+        onLocationsChangedRef.current(pickup, val, pickupCoords, coords ?? null, metrics);
       }
     },
-    [onDropChange, pickup, pickupCoords, dropCoords, metrics]
+    [onDropChange, pickup, pickupCoords, metrics]
   );
 
   const applyMetrics = useCallback((newMetrics: TripMetrics | null) => {
