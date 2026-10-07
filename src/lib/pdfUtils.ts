@@ -102,15 +102,15 @@ export function downloadRideSummaryReceipt(data: RideSummaryData) {
 
     <div class="fare-box">
       <div>
-        <div style="font-size:12px; font-weight:600; opacity:0.9;">Estimated Fare</div>
-        <div style="font-size:11px; opacity:0.7;">Taxes & Service Charge Included</div>
+        <div style="font-size:12px; font-weight:600; opacity:0.9;">Base Service Fee</div>
+        <div style="font-size:11px; opacity:0.7;">Remaining trip charges confirmed via WhatsApp</div>
       </div>
       <div class="fare-amount">${formattedFare}</div>
     </div>
 
     <div class="notice">
       <strong>Payment & Confirmation Notice:</strong><br/>
-      Bookings and payments are manually confirmed by our team via WhatsApp. The admin/owner will verify your ride details and contact you directly on <strong>+91 7306605416</strong> on WhatsApp to complete payment and dispatch your chauffeur.
+      The base service fee is listed above. The rest of the charges and final trip details will be communicated directly through WhatsApp by our booking team (<strong>+91 7306605416</strong>).
     </div>
 
     <div class="footer">

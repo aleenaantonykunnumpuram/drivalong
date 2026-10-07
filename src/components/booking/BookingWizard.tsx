@@ -401,11 +401,8 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
   }, [user]);
 
   const serviceDetails = CHAUFFEUR_SERVICES[s.serviceType] || CHAUFFEUR_SERVICES["Round-Trip Chauffeur"];
-  const durationHours = DURATION_HOURS[s.duration] || 4;
-
-  const fare = s.tripMetrics?.fare;
-  const totalAmountNum = fare ? fare.totalFare : serviceDetails.baseFare + durationHours * serviceDetails.ratePerHour;
-  const totalAmountStr = formatCurrency(totalAmountNum);
+  const baseFare = serviceDetails.baseFare;
+  const baseFareStr = formatCurrency(baseFare);
 
   const handleBookViaWhatsApp = () => {
     setValidationError("");
@@ -436,8 +433,6 @@ function StepPayment({ s, set, onNext, onBack }: { s: State; set: <K extends key
     setProcessing(true);
 
     const scheduleStr = s.timing === "now" ? "Immediate Pickup (As soon as possible)" : `${s.date} at ${s.time}`;
-    const distanceStr = s.tripMetrics?.distanceKm ? `${s.tripMetrics.distanceKm} km` : "As per route";
-    const fareStr = totalAmountStr || "To be confirmed";
 
     const whatsappMessage = `Hello Driv A Long,
 
@@ -466,11 +461,11 @@ ${scheduleStr}
 🚘 Vehicle Transmission:
 ${s.transmission === "automatic" ? "Automatic" : "Manual"}
 
-📏 Estimated Distance:
-${distanceStr}
+💰 Base Service Fee:
+${baseFareStr}
 
-💰 Estimated Fare:
-${fareStr}
+📝 Note:
+The rest of the charges and final trip details will be communicated directly through WhatsApp.
 
 Please confirm my booking and contact me.
 
@@ -496,13 +491,13 @@ Thank you.`;
         distanceKm: s.tripMetrics?.distanceKm || 0,
         durationMinutes: s.tripMetrics?.durationMinutes || 60,
         paymentMethod: "WhatsApp",
-        fare: fare || {
-          baseFare: serviceDetails.baseFare,
+        fare: {
+          baseFare: baseFare,
           ratePerKm: 13,
           ratePerHour: serviceDetails.ratePerHour,
           distanceCharge: 0,
           timeCharge: 0,
-          totalFare: totalAmountNum,
+          totalFare: baseFare,
         },
       },
     })
@@ -576,37 +571,29 @@ Thank you.`;
       <aside className="rounded-3xl border border-[#1E4193] bg-[#0B2D7A] p-6 text-white shadow-lift lg:col-span-2 flex flex-col justify-between space-y-5">
         <div>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Estimated Fare</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-200">Base Service Fee</span>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur">
               <ShieldCheck className="h-3.5 w-3.5 text-[#F4B400]" /> Verified Service
             </span>
           </div>
 
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-white">{totalAmountStr}</div>
+          <div className="mt-2 text-3xl font-extrabold tracking-tight text-white">{baseFareStr}</div>
 
-          {/* Fare Breakdown */}
-          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-2 text-blue-100/90 border border-white/10">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-blue-200 border-b border-white/10 pb-1.5 flex justify-between">
-              <span>Fare Standard</span>
-              <span>Amount</span>
-            </div>
-            <div className="flex justify-between">
+          {/* Base Fee & WhatsApp Note Card */}
+          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-3 text-blue-100/90 border border-white/10">
+            <div className="flex justify-between items-center text-xs font-semibold text-white border-b border-white/10 pb-2">
               <span>Base Service Fee</span>
-              <span>₹{serviceDetails.baseFare}</span>
+              <span className="text-[#F4B400] text-sm font-bold">{baseFareStr}</span>
             </div>
-            <div className="flex justify-between">
-              <span>Duration Charge ({s.duration})</span>
-              <span>₹{durationHours * serviceDetails.ratePerHour}</span>
-            </div>
-            {fare && fare.distanceKm > 0 && (
-              <div className="flex justify-between">
-                <span>Distance Charge ({fare.distanceKm} km)</span>
-                <span>₹{fare.distanceCharge}</span>
+
+            {/* Note that rest will be communicated via WhatsApp */}
+            <div className="rounded-xl bg-white/5 p-3 text-[11px] text-blue-100/95 leading-relaxed border border-white/10 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-white">
+                <span>📝 Note:</span>
               </div>
-            )}
-            <div className="flex justify-between border-t border-white/15 pt-2 text-xs font-bold text-white">
-              <span>Total Estimated Fare</span>
-              <span className="text-[#F4B400]">{totalAmountStr}</span>
+              <p className="text-blue-200">
+                The rest of the charges and final trip details will be communicated directly through WhatsApp by our booking team.
+              </p>
             </div>
           </div>
 
@@ -679,7 +666,7 @@ function SummaryCard({ s }: { s: State }) {
         <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3">
           <Meta k="Transmission" v={s.transmission} />
           <Meta k="Schedule" v={s.timing === "now" ? "Immediate Pickup" : `${s.date} · ${s.time}`} />
-          <Meta k="Distance" v={s.tripMetrics ? `${s.tripMetrics.distanceKm} km` : "—"} />
+          <Meta k="Base Fare" v={`₹${CHAUFFEUR_SERVICES[s.serviceType]?.baseFare || 299}`} />
         </div>
       </div>
     </div>
@@ -771,7 +758,7 @@ function StepConfirmation({ s }: { s: State }) {
       bookingTime: s.timing === "now" ? "Now" : s.time,
       duration: s.duration,
       transmission: s.transmission,
-      estimatedFare: s.tripMetrics ? s.tripMetrics.fare.totalFare : 797,
+      estimatedFare: `Base Fee: ₹${CHAUFFEUR_SERVICES[s.serviceType]?.baseFare || 299}`,
       driverName: "Pending Admin Approval",
       status: "Pending Admin Approval via WhatsApp (+91 7306605416)",
       customerName: user?.name || "Verified Customer",
@@ -894,9 +881,9 @@ function StepConfirmation({ s }: { s: State }) {
               <div className="mt-1 font-bold truncate text-foreground">{s.serviceType}</div>
             </div>
             <div className="p-4">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Estimated Fare</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Base Service Fee</div>
               <div className="mt-1 font-extrabold text-primary">
-                {s.tripMetrics ? formatCurrency(s.tripMetrics.fare.totalFare) : "₹797"}
+                {formatCurrency(CHAUFFEUR_SERVICES[s.serviceType]?.baseFare || 299)}
               </div>
             </div>
           </div>
