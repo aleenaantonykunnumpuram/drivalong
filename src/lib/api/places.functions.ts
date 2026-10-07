@@ -102,3 +102,60 @@ export const searchPlacesServerFn = createServerFn({ method: "POST" })
 
     return [];
   });
+
+/**
+ * Server-side reverse geocoding function (Node.js runtime, zero browser CORS).
+ * Resolves latitude and longitude coordinates into a human-readable street address.
+ */
+export const reverseGeocodeServerFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) =>
+    z.object({ lat: z.number(), lng: z.number() }).parse(data)
+  )
+  .handler(async ({ data }): Promise<{ display_name: string }> => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${data.lat}&lon=${data.lng}&addressdetails=1`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "DrivAlongBooking/1.0 (dev@drivalong.com)" },
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const addr = json?.address || {};
+        const mainName =
+          addr.amenity ||
+          addr.building ||
+          addr.road ||
+          addr.suburb ||
+          addr.neighbourhood ||
+          "";
+        const locality =
+          addr.city ||
+          addr.town ||
+          addr.village ||
+          addr.municipality ||
+          addr.district ||
+          "";
+        const state = addr.state || "";
+        const postcode = addr.postcode || "";
+
+        const parts = [mainName, locality, state, postcode].filter(Boolean);
+        const formatted =
+          parts.length > 0
+            ? parts.filter((p, i) => parts.indexOf(p) === i).join(", ")
+            : json?.display_name;
+
+        return {
+          display_name:
+            formatted ||
+            `Current Location (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})`,
+        };
+      }
+    } catch (err: any) {
+      console.warn("Server reverse geocoding failed:", err?.message || err);
+    }
+
+    return {
+      display_name: `Current Location (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})`,
+    };
+  });

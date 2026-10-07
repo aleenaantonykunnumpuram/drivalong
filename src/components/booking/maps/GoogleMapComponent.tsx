@@ -5,6 +5,7 @@ import { BookingSummary } from "./BookingSummary";
 import { calculateFare, DURATION_HOURS, type FareBreakdown, type ServiceType, type DurationOption } from "./fareUtils";
 import { getTripEstimate } from "@/lib/api/trip.functions";
 import { searchLocationSuggestions } from "@/lib/placesAutocomplete";
+import { reverseGeocodeServerFn } from "@/lib/api/places.functions";
 
 interface Coords {
   lat: number;
@@ -145,12 +146,9 @@ export function GoogleMapComponent({
         setPickupVerified(true);
         setLocatingUser(false);
 
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`, {
-          headers: { "User-Agent": "DrivAlong/1.0" },
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+        reverseGeocodeServerFn({ data: { lat: coords.lat, lng: coords.lng } })
+          .then((res) => {
+            const addr = res?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
             handlePickupChange(addr, coords, true);
           })
           .catch(() => {
