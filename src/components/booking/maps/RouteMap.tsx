@@ -1,6 +1,4 @@
-import React, { useEffect, useRef } from "react";
-import L from "leaflet";
-import { MapPin } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface Coords {
   lat: number;
@@ -87,58 +85,75 @@ export function RouteMap({
   className = "",
 }: RouteMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const layerGroupRef = useRef<L.LayerGroup | null>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const layerGroupRef = useRef<any>(null);
+  const leafletModuleRef = useRef<any>(null);
+  const [isClient, setIsClient] = useState(false);
 
-  // Initialize Leaflet map
   useEffect(() => {
-    if (!containerRef.current) return;
-    if (mapInstanceRef.current) return;
-
-    const initialCenter: [number, number] = pickupCoords
-      ? [pickupCoords.lat, pickupCoords.lng]
-      : userCoords
-      ? [userCoords.lat, userCoords.lng]
-      : defaultCenter;
-
-    const map = L.map(containerRef.current, {
-      center: initialCenter,
-      zoom: 13,
-      zoomControl: true,
-      attributionControl: false,
-    });
-
-    // High quality OpenStreetMap tiles
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-    }).addTo(map);
-
-    const layerGroup = L.layerGroup().addTo(map);
-    mapInstanceRef.current = map;
-    layerGroupRef.current = layerGroup;
-
-    // Handle container resizing
-    const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      resizeObserver.disconnect();
-      map.remove();
-      mapInstanceRef.current = null;
-      layerGroupRef.current = null;
-    };
+    setIsClient(true);
   }, []);
 
-  // Update markers, polyline and bounds whenever coordinates change
+  // Initialize Leaflet map safely on the client
   useEffect(() => {
+    if (!isClient || !containerRef.current) return;
+    let cancelled = false;
+
+    // Dynamically import Leaflet so Node.js SSR never evaluates leaflet's window reference
+    import("leaflet").then((leafletModule) => {
+      if (cancelled || !containerRef.current) return;
+      const L = leafletModule.default || leafletModule;
+      leafletModuleRef.current = L;
+
+      if (!mapInstanceRef.current) {
+        const initialCenter: [number, number] = pickupCoords
+          ? [pickupCoords.lat, pickupCoords.lng]
+          : userCoords
+          ? [userCoords.lat, userCoords.lng]
+          : defaultCenter;
+
+        const map = L.map(containerRef.current, {
+          center: initialCenter,
+          zoom: 13,
+          zoomControl: true,
+          attributionControl: false,
+        });
+
+        // OpenStreetMap raster tiles
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+        }).addTo(map);
+
+        const layerGroup = L.layerGroup().addTo(map);
+        mapInstanceRef.current = map;
+        layerGroupRef.current = layerGroup;
+
+        // Ensure tiles render on dynamic container resize
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 150);
+      }
+
+      // Render markers and polyline
+      renderLayers(L);
+    }).catch((err) => {
+      console.warn("Leaflet failed to load:", err);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isClient]);
+
+  // Update map contents whenever coordinates or polyline change
+  const renderLayers = (L: any) => {
     const map = mapInstanceRef.current;
     const group = layerGroupRef.current;
-    if (!map || !group) return;
+    if (!map || !group || !L) return;
 
     group.clearLayers();
-
     const boundsPoints: [number, number][] = [];
 
     // Pickup Icon (Royal Blue "P")
@@ -246,21 +261,43 @@ export function RouteMap({
       }
     }
 
-    // Fit map to visible points
+    // Fit map bounds
     if (boundsPoints.length === 1) {
       map.setView(boundsPoints[0], 14, { animate: true });
     } else if (boundsPoints.length > 1) {
       const bounds = L.latLngBounds(boundsPoints);
       map.fitBounds(bounds, { padding: [55, 55], maxZoom: 15, animate: true });
     }
+  };
+
+  // Re-run renderLayers when inputs change
+  useEffect(() => {
+    if (leafletModuleRef.current && mapInstanceRef.current) {
+      renderLayers(leafletModuleRef.current);
+    }
   }, [pickupCoords, dropCoords, userCoords, pickupText, dropText, routePolyline]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        layerGroupRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border border-border shadow-lift ${className}`}
-      style={{ minHeight: "340px", height: "100%" }}
+      className={`relative overflow-hidden rounded-3xl border border-border shadow-lift bg-muted/20 ${className}`}
+      style={{ minHeight: "340px", height: "100%", width: "100%" }}
     >
-      <div ref={containerRef} className="h-full w-full min-h-[340px]" />
+      <div
+        ref={containerRef}
+        className="h-full w-full min-h-[340px]"
+        style={{ minHeight: "340px", width: "100%", height: "100%" }}
+      />
 
       {/* Floating Status Badge */}
       <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold text-primary shadow-soft backdrop-blur">

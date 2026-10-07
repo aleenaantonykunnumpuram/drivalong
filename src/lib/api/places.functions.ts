@@ -26,12 +26,59 @@ export const searchPlacesServerFn = createServerFn({ method: "GET" })
     const lat = data.biasLat ?? 10.5276;
     const lng = data.biasLng ?? 76.2144;
 
-    // 1. Try Komoot Photon on server side (NO CORS issues here)
+    // 1. Primary: OpenStreetMap Nominatim with India filter & address details (responds in ~900ms)
     try {
-      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=${lat}&lon=${lng}&limit=6`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&limit=5&countrycodes=in&addressdetails=1`;
       const res = await fetch(url, {
-        headers: { "User-Agent": "DrivAlong/1.0 (RideBookingPlatform)" },
-        signal: AbortSignal.timeout(3500),
+        headers: { "User-Agent": "DrivAlongBooking/1.0 (dev@drivalong.com)" },
+        signal: AbortSignal.timeout(3000),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json) && json.length > 0) {
+          return json.map((item: any) => {
+            const addr = item.address || {};
+            const mainName =
+              addr.amenity ||
+              addr.building ||
+              addr.road ||
+              addr.suburb ||
+              addr.neighbourhood ||
+              item.name ||
+              "";
+            const locality =
+              addr.city ||
+              addr.town ||
+              addr.village ||
+              addr.municipality ||
+              addr.district ||
+              "";
+            const state = addr.state || "";
+
+            const parts = [mainName, locality, state].filter(Boolean);
+            const formatted = parts.length > 0
+              ? parts.filter((p, i) => parts.indexOf(p) === i).join(", ")
+              : item.display_name;
+
+            return {
+              display_name: formatted,
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon),
+            };
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn("Server Nominatim lookup failed or timed out:", err?.message || err);
+    }
+
+    // 2. Secondary fallback: Komoot Photon with Kerala bias
+    try {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=${lat}&lon=${lng}&limit=5`;
+      const res = await fetch(url, {
+        headers: { "User-Agent": "DrivAlongBooking/1.0" },
+        signal: AbortSignal.timeout(2500),
       });
 
       if (res.ok) {
@@ -49,31 +96,8 @@ export const searchPlacesServerFn = createServerFn({ method: "GET" })
           });
         }
       }
-    } catch (err) {
-      console.warn("Server Photon lookup failed:", err);
-    }
-
-    // 2. Fallback to OpenStreetMap Nominatim
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&limit=4&countrycodes=in`,
-        {
-          headers: { "User-Agent": "DrivAlong/1.0 (RideBookingPlatform)" },
-          signal: AbortSignal.timeout(3500),
-        }
-      );
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json) && json.length > 0) {
-          return json.map((item: any) => ({
-            display_name: item.display_name,
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-          }));
-        }
-      }
-    } catch (err) {
-      console.warn("Server Nominatim lookup failed:", err);
+    } catch (err: any) {
+      console.warn("Server Photon lookup failed or timed out:", err?.message || err);
     }
 
     return [];
