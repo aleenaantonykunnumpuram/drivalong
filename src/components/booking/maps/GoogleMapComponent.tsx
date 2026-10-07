@@ -1,17 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useJsApiLoader, Libraries } from "@react-google-maps/api";
 import { LocationSearch } from "./LocationSearch";
 import { RouteMap } from "./RouteMap";
 import { BookingSummary } from "./BookingSummary";
-import { computeHaversineDistance, calculateFare, DURATION_HOURS, type FareBreakdown, type ServiceType, type DurationOption } from "./fareUtils";
+import { calculateFare, DURATION_HOURS, type FareBreakdown, type ServiceType, type DurationOption } from "./fareUtils";
 import { getTripEstimate } from "@/lib/api/trip.functions";
 import { searchLocationSuggestions } from "@/lib/placesAutocomplete";
-
-declare global {
-  interface Window {
-    gm_authFailure?: () => void;
-  }
-}
 
 interface Coords {
   lat: number;
@@ -44,8 +37,6 @@ interface GoogleMapComponentProps {
   className?: string;
 }
 
-const libraries: Libraries = ["places", "geometry"];
-
 export function GoogleMapComponent({
   pickup = "",
   drop = "",
@@ -59,28 +50,6 @@ export function GoogleMapComponent({
   onMetricsCalculated,
   className = "",
 }: GoogleMapComponentProps) {
-  // Load Google Maps JavaScript API script
-  const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || "";
-
-  const [mapAuthFailed, setMapAuthFailed] = useState<boolean>(false);
-
-  const { isLoaded: scriptLoaded, loadError } = useJsApiLoader({
-    id: "google-map-script",
-    googleMapsApiKey: apiKey,
-    libraries,
-  });
-
-  // Catch global Google Maps auth failures
-  useEffect(() => {
-    window.gm_authFailure = () => {
-      console.warn("Google Maps authentication failed (gm_authFailure). Falling back to interactive map view.");
-      setMapAuthFailed(true);
-      setErrorMsg("Google Maps API key error (ApiNotActivatedMapError). Please enable Maps JavaScript API in Google Cloud Console.");
-    };
-  }, []);
-
-  const isLoaded = Boolean(apiKey && apiKey.trim().length > 0) && scriptLoaded && !mapAuthFailed;
-
   const [userCoords, setUserCoords] = useState<Coords | null>(null);
   const [pickupCoords, setPickupCoords] = useState<Coords | null>(null);
   const [dropCoords, setDropCoords] = useState<Coords | null>(null);
@@ -146,7 +115,6 @@ export function GoogleMapComponent({
     [onDropChange, pickup, pickupCoords, dropCoords, metrics]
   );
 
-  // Helper to atomically set metrics and trigger callback
   const applyMetrics = useCallback((newMetrics: TripMetrics | null) => {
     setMetrics(newMetrics);
     if (newMetrics && onMetricsCalculatedRef.current) {
@@ -175,34 +143,17 @@ export function GoogleMapComponent({
         setPickupVerified(true);
         setLocatingUser(false);
 
-        if (window.google?.maps?.Geocoder) {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ location: coords }, (results, status) => {
-            if (status === "OK" && results && results[0]) {
-              handlePickupChange(results[0].formatted_address, coords, true);
-            } else {
-              fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`)
-                .then((r) => r.json())
-                .then((data) => {
-                  const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
-                  handlePickupChange(addr, coords, true);
-                })
-                .catch(() => {
-                  handlePickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
-                });
-            }
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`, {
+          headers: { "User-Agent": "DrivAlong/1.0" },
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+            handlePickupChange(addr, coords, true);
+          })
+          .catch(() => {
+            handlePickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
           });
-        } else {
-          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`)
-            .then((r) => r.json())
-            .then((data) => {
-              const addr = data?.display_name || `Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
-              handlePickupChange(addr, coords, true);
-            })
-            .catch(() => {
-              handlePickupChange(`Current Location (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, coords, true);
-            });
-        }
       },
       (error) => {
         setLocatingUser(false);
@@ -228,78 +179,36 @@ export function GoogleMapComponent({
     if (!pickup || pickup.trim().length < 2 || pickupVerified) return;
 
     const timer = setTimeout(async () => {
-      const fallbackGeocode = async () => {
-        try {
-          const results = await searchLocationSuggestions(pickup, userCoords || pickupCoords);
-          if (results && results[0]) {
-            handlePickupChange(pickup, { lat: results[0].lat, lng: results[0].lng }, true);
-          }
-        } catch (err) {
-          console.warn("Fallback geocoding failed:", err);
+      try {
+        const results = await searchLocationSuggestions(pickup, userCoords || pickupCoords);
+        if (results && results[0]) {
+          handlePickupChange(pickup, { lat: results[0].lat, lng: results[0].lng }, true);
         }
-      };
-
-      if (window.google?.maps?.Geocoder && isLoaded) {
-        try {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ address: pickup }, (results, status) => {
-            if (status === "OK" && results && results[0]) {
-              const loc = results[0].geometry.location;
-              const coords = { lat: loc.lat(), lng: loc.lng() };
-              handlePickupChange(pickup, coords, true);
-            } else {
-              fallbackGeocode();
-            }
-          });
-        } catch {
-          fallbackGeocode();
-        }
-      } else {
-        fallbackGeocode();
+      } catch (err) {
+        console.warn("Fallback geocoding failed:", err);
       }
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [pickup, pickupVerified, isLoaded, handlePickupChange, userCoords, pickupCoords]);
+  }, [pickup, pickupVerified, handlePickupChange, userCoords, pickupCoords]);
 
   // Auto-geocode Drop text if typed manually without selecting dropdown
   useEffect(() => {
     if (!drop || drop.trim().length < 2 || dropVerified) return;
 
     const timer = setTimeout(async () => {
-      const fallbackGeocode = async () => {
-        try {
-          const results = await searchLocationSuggestions(drop, pickupCoords || userCoords);
-          if (results && results[0]) {
-            handleDropChange(drop, { lat: results[0].lat, lng: results[0].lng }, true);
-          }
-        } catch (err) {
-          console.warn("Fallback geocoding failed:", err);
+      try {
+        const results = await searchLocationSuggestions(drop, pickupCoords || userCoords);
+        if (results && results[0]) {
+          handleDropChange(drop, { lat: results[0].lat, lng: results[0].lng }, true);
         }
-      };
-
-      if (window.google?.maps?.Geocoder && isLoaded) {
-        try {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ address: drop }, (results, status) => {
-            if (status === "OK" && results && results[0]) {
-              const loc = results[0].geometry.location;
-              const coords = { lat: loc.lat(), lng: loc.lng() };
-              handleDropChange(drop, coords, true);
-            } else {
-              fallbackGeocode();
-            }
-          });
-        } catch {
-          fallbackGeocode();
-        }
-      } else {
-        fallbackGeocode();
+      } catch (err) {
+        console.warn("Fallback geocoding failed:", err);
       }
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [drop, dropVerified, isLoaded, handleDropChange, pickupCoords, userCoords]);
+  }, [drop, dropVerified, handleDropChange, pickupCoords, userCoords]);
 
   // Unified Route & Fare Fetching effect
   useEffect(() => {
@@ -348,31 +257,10 @@ export function GoogleMapComponent({
           setEstimating(false);
         }
       }
-    }, 400);
+    }, 350);
 
     return () => clearTimeout(timer);
   }, [pickupCoords, dropCoords, pickupVerified, dropVerified, serviceType, duration, pickup, drop, applyMetrics]);
-
-  // Synchronized callback for client-side Google Maps Directions rendering fallback
-  const handleClientRouteCalculated = useCallback(
-    (distKm: number, durMin: number, durText: string, polyline?: string) => {
-      const calculatedFare = calculateFare(distKm, durMin, serviceType as ServiceType);
-      const etaDate = new Date(Date.now() + durMin * 60_000);
-      const newMetrics: TripMetrics = {
-        distanceKm: distKm,
-        durationMinutes: durMin,
-        durationInTrafficMinutes: null,
-        durationText: durText,
-        etaLabel: etaDate.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
-        etaTime: etaDate.toISOString(),
-        routePolyline: polyline || null,
-        fare: calculatedFare,
-      };
-      applyMetrics(newMetrics);
-      setEstimating(false);
-    },
-    [serviceType, applyMetrics]
-  );
 
   return (
     <div className={`space-y-6 w-full max-w-full ${className}`}>
@@ -381,7 +269,6 @@ export function GoogleMapComponent({
         {/* Left Column: Location Search & Ride Metrics */}
         <div className="space-y-5 min-w-0 w-full relative z-20">
           <LocationSearch
-            isLoaded={isLoaded && !loadError}
             pickup={pickup}
             drop={drop}
             pickupVerified={pickupVerified}
@@ -413,19 +300,15 @@ export function GoogleMapComponent({
           />
         </div>
 
-        {/* Right Column: Responsive Interactive Map */}
+        {/* Right Column: Clean Leaflet Map (Zero Google Modals, Zero Watermarks) */}
         <div className="h-full min-h-[300px] sm:min-h-[340px] min-w-0 w-full overflow-hidden rounded-3xl">
           <RouteMap
-            isLoaded={isLoaded && !loadError}
-            loadError={loadError}
             pickupCoords={pickupCoords}
             dropCoords={dropCoords}
             userCoords={userCoords}
             pickupText={pickup}
             dropText={drop}
             routePolyline={metrics?.routePolyline}
-            onRouteCalculated={handleClientRouteCalculated}
-            onRouteError={(err) => setErrorMsg(err)}
             className="h-full w-full max-w-full"
           />
         </div>

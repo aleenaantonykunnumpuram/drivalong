@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Autocomplete } from "@react-google-maps/api";
 import { MapPin, Navigation, AlertTriangle, X, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
 import { searchLocationSuggestions, type PlaceSuggestion } from "@/lib/placesAutocomplete";
 
 interface LocationSearchProps {
-  isLoaded: boolean;
+  isLoaded?: boolean;
   pickup: string;
   drop: string;
   pickupVerified?: boolean;
@@ -19,7 +18,6 @@ interface LocationSearchProps {
 }
 
 export function LocationSearch({
-  isLoaded,
   pickup,
   drop,
   pickupVerified = false,
@@ -32,13 +30,13 @@ export function LocationSearch({
   errorMsg = null,
   onClearError,
 }: LocationSearchProps) {
-  const [pickupAutocomplete, setPickupAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-  const [dropAutocomplete, setDropAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-
   const [pickupSuggestions, setPickupSuggestions] = useState<PlaceSuggestion[]>([]);
   const [dropSuggestions, setDropSuggestions] = useState<PlaceSuggestion[]>([]);
   const [loadingPickupSug, setLoadingPickupSug] = useState(false);
   const [loadingDropSug, setLoadingDropSug] = useState(false);
+
+  const pickupContainerRef = useRef<HTMLDivElement>(null);
+  const dropContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch suggestions for Pickup when typing and unverified
   useEffect(() => {
@@ -57,7 +55,7 @@ export function LocationSearch({
       } finally {
         setLoadingPickupSug(false);
       }
-    }, 280);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [pickup, pickupVerified, biasCoords]);
@@ -79,42 +77,24 @@ export function LocationSearch({
       } finally {
         setLoadingDropSug(false);
       }
-    }, 280);
+    }, 250);
 
     return () => clearTimeout(timer);
   }, [drop, dropVerified, biasCoords]);
 
-  const onPickupPlaceChanged = () => {
-    if (pickupAutocomplete !== null) {
-      const place = pickupAutocomplete.getPlace();
-      const lat = place.geometry?.location?.lat();
-      const lng = place.geometry?.location?.lng();
-      const hasCoords = lat !== undefined && lng !== undefined;
-      if (place.formatted_address) {
-        onPickupChange(place.formatted_address, hasCoords ? { lat, lng } : undefined, hasCoords);
-        setPickupSuggestions([]);
-      } else if (place.name) {
-        onPickupChange(place.name, hasCoords ? { lat, lng } : undefined, hasCoords);
+  // Handle outside clicks to close dropdowns
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (pickupContainerRef.current && !pickupContainerRef.current.contains(e.target as Node)) {
         setPickupSuggestions([]);
       }
-    }
-  };
-
-  const onDropPlaceChanged = () => {
-    if (dropAutocomplete !== null) {
-      const place = dropAutocomplete.getPlace();
-      const lat = place.geometry?.location?.lat();
-      const lng = place.geometry?.location?.lng();
-      const hasCoords = lat !== undefined && lng !== undefined;
-      if (place.formatted_address) {
-        onDropChange(place.formatted_address, hasCoords ? { lat, lng } : undefined, hasCoords);
-        setDropSuggestions([]);
-      } else if (place.name) {
-        onDropChange(place.name, hasCoords ? { lat, lng } : undefined, hasCoords);
+      if (dropContainerRef.current && !dropContainerRef.current.contains(e.target as Node)) {
         setDropSuggestions([]);
       }
-    }
-  };
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -138,14 +118,14 @@ export function LocationSearch({
       )}
 
       {/* Pickup Input Field */}
-      <div className="relative z-30">
+      <div ref={pickupContainerRef} className="relative z-30">
         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           <span>Pickup Location</span>
           <button
             type="button"
             onClick={onUseCurrentLocation}
             disabled={locatingUser}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-50 cursor-pointer"
           >
             <Navigation className={`h-3.5 w-3.5 ${locatingUser ? "animate-spin" : ""}`} />
             {locatingUser ? "Locating..." : "Use Current Location"}
@@ -154,43 +134,20 @@ export function LocationSearch({
 
         <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 ${pickupVerified ? "border-primary/40" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-          {isLoaded && window.google?.maps?.places ? (
-            <Autocomplete
-              onLoad={(ac) => setPickupAutocomplete(ac)}
-              onPlaceChanged={onPickupPlaceChanged}
-              className="flex-1 min-w-0 w-full"
-            >
-              <input
-                type="text"
-                value={pickup}
-                onChange={(e) => onPickupChange(e.target.value, undefined, false)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && pickupSuggestions[0]) {
-                    e.preventDefault();
-                    onPickupChange(pickupSuggestions[0].display_name, { lat: pickupSuggestions[0].lat, lng: pickupSuggestions[0].lng }, true);
-                    setPickupSuggestions([]);
-                  }
-                }}
-                placeholder="Search pickup address..."
-                className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
-              />
-            </Autocomplete>
-          ) : (
-            <input
-              type="text"
-              value={pickup}
-              onChange={(e) => onPickupChange(e.target.value, undefined, false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && pickupSuggestions[0]) {
-                  e.preventDefault();
-                  onPickupChange(pickupSuggestions[0].display_name, { lat: pickupSuggestions[0].lat, lng: pickupSuggestions[0].lng }, true);
-                  setPickupSuggestions([]);
-                }
-              }}
-              placeholder="Enter pickup location..."
-              className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
-            />
-          )}
+          <input
+            type="text"
+            value={pickup}
+            onChange={(e) => onPickupChange(e.target.value, undefined, false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && pickupSuggestions[0]) {
+                e.preventDefault();
+                onPickupChange(pickupSuggestions[0].display_name, { lat: pickupSuggestions[0].lat, lng: pickupSuggestions[0].lng }, true);
+                setPickupSuggestions([]);
+              }
+            }}
+            placeholder="Search pickup address (e.g. Poothole, Thrissur)..."
+            className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
+          />
           {pickupVerified ? (
             <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" aria-label="Verified location" />
           ) : (
@@ -200,10 +157,10 @@ export function LocationSearch({
 
         {/* Pickup Instant Dropdown Suggestions */}
         {!pickupVerified && pickupSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
-            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Matching Locations</span>
-              {loadingPickupSug && <Loader2 className="h-3 w-3 animate-spin" />}
+          <div className="absolute left-0 right-0 top-full z-[9999] mt-1.5 max-h-64 overflow-y-auto rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between border-b border-border/40">
+              <span>Matching Locations (Click to Select)</span>
+              {loadingPickupSug && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
             </div>
             {pickupSuggestions.map((s, idx) => (
               <button
@@ -213,7 +170,7 @@ export function LocationSearch({
                   onPickupChange(s.display_name, { lat: s.lat, lng: s.lng }, true);
                   setPickupSuggestions([]);
                 }}
-                className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-xs text-foreground transition hover:bg-subtle active:scale-[0.99]"
+                className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs text-foreground transition hover:bg-primary/10 hover:text-primary active:scale-[0.99] cursor-pointer"
               >
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
                 <span className="flex-1 line-clamp-2 leading-relaxed">{s.display_name}</span>
@@ -225,52 +182,29 @@ export function LocationSearch({
       </div>
 
       {/* Destination Input Field (Optional) */}
-      <div className="relative z-20">
+      <div ref={dropContainerRef} className="relative z-20">
         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           <span>Destination <span className="text-[10px] lowercase font-normal text-muted-foreground">(optional for hourly/daily)</span></span>
         </div>
 
-        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 ${dropVerified ? "border-secondary/50" : "border-border"}`}>
-          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
-          {isLoaded && window.google?.maps?.places ? (
-            <Autocomplete
-              onLoad={(ac) => setDropAutocomplete(ac)}
-              onPlaceChanged={onDropPlaceChanged}
-              className="flex-1 min-w-0 w-full"
-            >
-              <input
-                type="text"
-                value={drop}
-                onChange={(e) => onDropChange(e.target.value, undefined, false)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && dropSuggestions[0]) {
-                    e.preventDefault();
-                    onDropChange(dropSuggestions[0].display_name, { lat: dropSuggestions[0].lat, lng: dropSuggestions[0].lng }, true);
-                    setDropSuggestions([]);
-                  }
-                }}
-                placeholder="Search destination (optional for hourly/daily)..."
-                className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
-              />
-            </Autocomplete>
-          ) : (
-            <input
-              type="text"
-              value={drop}
-              onChange={(e) => onDropChange(e.target.value, undefined, false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && dropSuggestions[0]) {
-                  e.preventDefault();
-                  onDropChange(dropSuggestions[0].display_name, { lat: dropSuggestions[0].lat, lng: dropSuggestions[0].lng }, true);
-                  setDropSuggestions([]);
-                }
-              }}
-              placeholder="Enter destination (optional)..."
-              className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
-            />
-          )}
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 ${dropVerified ? "border-amber-500/50" : "border-border"}`}>
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-amber-500" />
+          <input
+            type="text"
+            value={drop}
+            onChange={(e) => onDropChange(e.target.value, undefined, false)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && dropSuggestions[0]) {
+                e.preventDefault();
+                onDropChange(dropSuggestions[0].display_name, { lat: dropSuggestions[0].lat, lng: dropSuggestions[0].lng }, true);
+                setDropSuggestions([]);
+              }
+            }}
+            placeholder="Search destination (e.g. Kakkanad, Kochi, Aluva)..."
+            className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
+          />
           {dropVerified ? (
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-secondary" aria-label="Verified location" />
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-amber-500" aria-label="Verified location" />
           ) : (
             drop && <span className="text-[10px] font-semibold tracking-wide text-primary animate-pulse shrink-0">Resolving...</span>
           )}
@@ -278,10 +212,10 @@ export function LocationSearch({
 
         {/* Drop Instant Dropdown Suggestions */}
         {!dropVerified && dropSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
-            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              <span>Matching Destinations</span>
-              {loadingDropSug && <Loader2 className="h-3 w-3 animate-spin" />}
+          <div className="absolute left-0 right-0 top-full z-[9999] mt-1.5 max-h-64 overflow-y-auto rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between border-b border-border/40">
+              <span>Matching Destinations (Click to Select)</span>
+              {loadingDropSug && <Loader2 className="h-3 w-3 animate-spin text-amber-500" />}
             </div>
             {dropSuggestions.map((s, idx) => (
               <button
@@ -291,7 +225,7 @@ export function LocationSearch({
                   onDropChange(s.display_name, { lat: s.lat, lng: s.lng }, true);
                   setDropSuggestions([]);
                 }}
-                className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2 text-left text-xs text-foreground transition hover:bg-subtle active:scale-[0.99]"
+                className="flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left text-xs text-foreground transition hover:bg-amber-500/10 hover:text-amber-600 active:scale-[0.99] cursor-pointer"
               >
                 <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
                 <span className="flex-1 line-clamp-2 leading-relaxed">{s.display_name}</span>
@@ -304,7 +238,7 @@ export function LocationSearch({
 
       {(!pickupVerified || !dropVerified) && (pickup || drop) && (
         <p className="text-[11px] text-muted-foreground">
-          Choose a location from the dropdown suggestions or click one of the matching addresses to confirm your route.
+          Click any matching location from the dropdown suggestions or press <kbd className="rounded border px-1 py-0.5 text-[10px] font-mono bg-muted">Enter</kbd> to confirm.
         </p>
       )}
     </div>

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { GoogleMap, MarkerF, PolylineF, DirectionsRenderer } from "@react-google-maps/api";
+import React, { useEffect, useRef } from "react";
+import L from "leaflet";
 import { MapPin } from "lucide-react";
 
 interface Coords {
@@ -8,62 +8,63 @@ interface Coords {
 }
 
 interface RouteMapProps {
-  isLoaded: boolean;
+  isLoaded?: boolean;
   loadError?: Error | null;
   pickupCoords?: Coords | null;
   dropCoords?: Coords | null;
   userCoords?: Coords | null;
   pickupText?: string;
   dropText?: string;
-  /** Encoded route polyline returned by the backend Directions API call. */
   routePolyline?: string | null;
-  /**
-   * Called only when this component falls back to calculating the route
-   * client-side (e.g. the backend estimate hasn't returned yet, or the
-   * server key isn't configured).
-   */
   onRouteCalculated?: (distanceKm: number, durationMinutes: number, durationText: string, overviewPolyline?: string) => void;
   onRouteError?: (msg: string) => void;
   className?: string;
 }
 
-const mapContainerStyle = {
-  width: "100%",
-  height: "100%",
-  minHeight: "320px",
-  borderRadius: "24px",
-};
+const defaultCenter: [number, number] = [10.5276, 76.2144]; // Thrissur / Kerala
 
-const defaultCenter: Coords = {
-  lat: 9.9312, // Kochi / Kerala default
-  lng: 76.2673,
-};
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0;
+  const len = encoded.length;
+  let lat = 0;
+  let lng = 0;
 
-const defaultOptions: google.maps.MapOptions = {
-  disableDefaultUI: false,
-  zoomControl: true,
-  streetViewControl: false,
-  mapTypeControl: false,
-  fullscreenControl: true,
-  styles: [
-    {
-      featureType: "poi",
-      elementType: "labels",
-      stylers: [{ visibility: "off" }],
-    },
-  ],
-};
+  while (index < len) {
+    let b: number;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
 
-function createFallbackRoutePoints(origin: Coords, destination: Coords): Coords[] {
-  const points: Coords[] = [];
-  const steps = 35;
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
 
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+}
+
+function createCurvedRoute(origin: Coords, destination: Coords): [number, number][] {
+  const points: [number, number][] = [];
+  const steps = 30;
   const midLat = (origin.lat + destination.lat) / 2;
   const midLng = (origin.lng + destination.lng) / 2;
-
   const dx = destination.lng - origin.lng;
   const dy = destination.lat - origin.lat;
-  const curveFactor = 0.12;
+  const curveFactor = 0.1;
   const controlLat = midLat - dx * curveFactor;
   const controlLng = midLng + dy * curveFactor;
 
@@ -71,262 +72,201 @@ function createFallbackRoutePoints(origin: Coords, destination: Coords): Coords[
     const t = i / steps;
     const lat = (1 - t) * (1 - t) * origin.lat + 2 * (1 - t) * t * controlLat + t * t * destination.lat;
     const lng = (1 - t) * (1 - t) * origin.lng + 2 * (1 - t) * t * controlLng + t * t * destination.lng;
-    points.push({ lat, lng });
+    points.push([lat, lng]);
   }
-
   return points;
 }
 
 export function RouteMap({
-  isLoaded,
-  loadError = null,
   pickupCoords,
   dropCoords,
   userCoords,
   pickupText,
   dropText,
   routePolyline,
-  onRouteCalculated,
-  onRouteError,
   className = "",
 }: RouteMapProps) {
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
 
-  const onLoad = useCallback((m: google.maps.Map) => {
-    setMap(m);
+  // Initialize Leaflet map
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (mapInstanceRef.current) return;
+
+    const initialCenter: [number, number] = pickupCoords
+      ? [pickupCoords.lat, pickupCoords.lng]
+      : userCoords
+      ? [userCoords.lat, userCoords.lng]
+      : defaultCenter;
+
+    const map = L.map(containerRef.current, {
+      center: initialCenter,
+      zoom: 13,
+      zoomControl: true,
+      attributionControl: false,
+    });
+
+    // High quality OpenStreetMap tiles
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+    }).addTo(map);
+
+    const layerGroup = L.layerGroup().addTo(map);
+    mapInstanceRef.current = map;
+    layerGroupRef.current = layerGroup;
+
+    // Handle container resizing
+    const resizeObserver = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+      map.remove();
+      mapInstanceRef.current = null;
+      layerGroupRef.current = null;
+    };
   }, []);
 
-  const onUnmount = useCallback(() => {
-    setMap(null);
-  }, []);
-
-  // Compute polyline path (from backend polyline if present, else fallback curve)
-  const polylinePath = useMemo(() => {
-    if (!pickupCoords || !dropCoords) return [];
-
-    if (routePolyline && window.google?.maps?.geometry?.encoding) {
-      try {
-        const decoded = window.google.maps.geometry.encoding.decodePath(routePolyline);
-        if (decoded && decoded.length > 0) {
-          return decoded.map((pt) => ({ lat: pt.lat(), lng: pt.lng() }));
-        }
-      } catch (e) {
-        console.warn("Failed to decode backend polyline:", e);
-      }
-    }
-
-    return createFallbackRoutePoints(pickupCoords, dropCoords);
-  }, [pickupCoords, dropCoords, routePolyline]);
-
-  // Request client-side DirectionsService route from Google Maps API
+  // Update markers, polyline and bounds whenever coordinates change
   useEffect(() => {
-    if (!isLoaded || !window.google || !pickupCoords || !dropCoords) {
-      setDirectionsResponse(null);
-      return;
-    }
+    const map = mapInstanceRef.current;
+    const group = layerGroupRef.current;
+    if (!map || !group) return;
 
-    try {
-      const directionsService = new window.google.maps.DirectionsService();
+    group.clearLayers();
 
-      directionsService.route(
-        {
-          origin: pickupCoords,
-          destination: dropCoords,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK && result) {
-            setDirectionsResponse(result);
+    const boundsPoints: [number, number][] = [];
 
-            const leg = result.routes[0]?.legs[0];
-            if (leg && onRouteCalculated) {
-              const distanceKm = (leg.distance?.value || 0) / 1000;
-              const durationMinutes = (leg.duration?.value || 0) / 60;
-              const durationText = leg.duration?.text || "Unknown";
-              const overviewPolyline = result.routes[0]?.overview_polyline || undefined;
-              onRouteCalculated(Math.round(distanceKm * 10) / 10, Math.round(durationMinutes), durationText, overviewPolyline);
-            }
-          } else {
-            console.warn("Client DirectionsService status:", status);
-            setDirectionsResponse(null);
-          }
-        }
-      );
-    } catch (e) {
-      console.warn("Directions calculation error:", e);
-      setDirectionsResponse(null);
-    }
-  }, [isLoaded, pickupCoords, dropCoords, onRouteCalculated]);
+    // Pickup Icon (Royal Blue "P")
+    const pickupIcon = L.divIcon({
+      className: "drivalong-pin",
+      html: `
+        <div style="
+          background:#1E5AE8;
+          color:#ffffff;
+          width:30px;
+          height:30px;
+          border-radius:50%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:700;
+          font-size:12px;
+          border:2.5px solid #ffffff;
+          box-shadow:0 4px 14px rgba(30,90,232,0.45);
+        ">P</div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    });
 
-  // Adjust map bounds when markers change
-  useEffect(() => {
-    if (!map || !window.google) return;
+    // Drop Icon (Amber Gold "D")
+    const dropIcon = L.divIcon({
+      className: "drivalong-pin",
+      html: `
+        <div style="
+          background:#F59E0B;
+          color:#ffffff;
+          width:30px;
+          height:30px;
+          border-radius:7px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-weight:700;
+          font-size:12px;
+          border:2.5px solid #ffffff;
+          box-shadow:0 4px 14px rgba(245,158,11,0.45);
+        ">D</div>
+      `,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+    });
 
-    const bounds = new window.google.maps.LatLngBounds();
-    let hasPoints = false;
-
+    // Add Pickup Marker
     if (pickupCoords) {
-      bounds.extend(pickupCoords);
-      hasPoints = true;
-    }
-    if (dropCoords) {
-      bounds.extend(dropCoords);
-      hasPoints = true;
-    }
-    if (userCoords && !pickupCoords && !dropCoords) {
-      bounds.extend(userCoords);
-      hasPoints = true;
+      const pMarker = L.marker([pickupCoords.lat, pickupCoords.lng], { icon: pickupIcon });
+      if (pickupText) {
+        pMarker.bindPopup(`<b>Pickup:</b><br/>${pickupText}`);
+      }
+      pMarker.addTo(group);
+      boundsPoints.push([pickupCoords.lat, pickupCoords.lng]);
+    } else if (userCoords) {
+      const uMarker = L.marker([userCoords.lat, userCoords.lng], { icon: pickupIcon });
+      uMarker.bindPopup("Your Location").addTo(group);
+      boundsPoints.push([userCoords.lat, userCoords.lng]);
     }
 
-    if (hasPoints) {
-      map.fitBounds(bounds, { top: 60, right: 60, bottom: 60, left: 60 });
-      if (pickupCoords && !dropCoords) {
-        map.setZoom(14);
+    // Add Drop Marker
+    if (dropCoords) {
+      const dMarker = L.marker([dropCoords.lat, dropCoords.lng], { icon: dropIcon });
+      if (dropText) {
+        dMarker.bindPopup(`<b>Destination:</b><br/>${dropText}`);
+      }
+      dMarker.addTo(group);
+      boundsPoints.push([dropCoords.lat, dropCoords.lng]);
+    }
+
+    // Draw route path between Pickup and Drop
+    if (pickupCoords && dropCoords) {
+      let routePoints: [number, number][] = [];
+
+      if (routePolyline && routePolyline.length > 5) {
+        try {
+          routePoints = decodePolyline(routePolyline);
+        } catch {
+          routePoints = createCurvedRoute(pickupCoords, dropCoords);
+        }
+      } else {
+        routePoints = createCurvedRoute(pickupCoords, dropCoords);
+      }
+
+      if (routePoints.length > 0) {
+        // Casing polyline (darker border for contrast)
+        L.polyline(routePoints, {
+          color: "#0F3DA6",
+          weight: 7,
+          opacity: 0.8,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(group);
+
+        // Core polyline (vibrant blue)
+        L.polyline(routePoints, {
+          color: "#2563EB",
+          weight: 4,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round",
+        }).addTo(group);
       }
     }
-  }, [map, pickupCoords, dropCoords, userCoords]);
 
-  const currentCenter = pickupCoords || userCoords || defaultCenter;
-
-  // Fallback map preview when Google Maps API fails to load
-  if (loadError || !isLoaded) {
-    return (
-      <div className={`relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border border-border bg-subtle p-6 shadow-inner ${className}`} style={{ minHeight: "340px" }}>
-        <div className="absolute inset-0 grid-bg opacity-40" />
-
-        <svg className="absolute inset-0 h-full w-full opacity-70" viewBox="0 0 400 300" preserveAspectRatio="none">
-          <path d="M0 240 C 90 200, 160 270, 240 180 S 370 100, 400 120" stroke="#CBD5E1" strokeWidth="14" fill="none" strokeLinecap="round" />
-          <path d="M0 240 C 90 200, 160 270, 240 180 S 370 100, 400 140" stroke="#1E5AE8" strokeWidth="4" fill="none" strokeDasharray="6 8" strokeLinecap="round" />
-          <path d="M10 50 L 390 70" stroke="#E2E8F0" strokeWidth="8" fill="none" strokeLinecap="round" />
-          <path d="M110 0 L 140 300" stroke="#E2E8F0" strokeWidth="8" fill="none" strokeLinecap="round" />
-        </svg>
-
-        <div className="absolute left-10 bottom-16 z-10 flex items-center gap-2">
-          <div className="relative">
-            <div className="absolute inset-0 -m-2 animate-ping rounded-full bg-[#1E5AE8]/30" />
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[#1E5AE8] text-white shadow-lift font-bold text-xs">
-              P
-            </div>
-          </div>
-          <div className="rounded-xl border border-border bg-background/95 px-3 py-1.5 text-xs font-semibold shadow-soft backdrop-blur max-w-[160px] truncate">
-            {pickupText || "Pickup Location"}
-          </div>
-        </div>
-
-        <div className="absolute right-10 top-12 z-10 flex items-center gap-2">
-          <div className="rounded-xl border border-border bg-background/95 px-3 py-1.5 text-xs font-semibold shadow-soft backdrop-blur max-w-[160px] truncate">
-            {dropText || "Drop Location"}
-          </div>
-          <div className="grid h-8 w-8 place-items-center rounded-sm bg-[#F4B400] text-slate-900 shadow-lift font-bold text-xs">
-            D
-          </div>
-        </div>
-
-        <div className="relative z-10 my-auto w-full max-w-sm rounded-2xl border border-border/80 bg-background/90 p-4 shadow-lift backdrop-blur text-center space-y-2">
-          <div className="mx-auto grid h-9 w-9 place-items-center rounded-xl bg-[#1E5AE8]/10 text-[#1E5AE8]">
-            <MapPin className="h-5 w-5" />
-          </div>
-          <h4 className="text-sm font-semibold text-foreground">Interactive Route & Location Map</h4>
-          <p className="text-[11px] text-muted-foreground">
-            Live chauffeur navigation & distance estimation active.
-          </p>
-        </div>
-
-        <div className="relative z-10 flex w-full items-center justify-between text-[11px] font-semibold text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 shadow-soft backdrop-blur text-[#1E5AE8]">
-            <span className="h-2 w-2 rounded-full bg-[#1E5AE8] animate-pulse" /> Driving Route Active
-          </span>
-          <span className="rounded-full bg-background/90 px-3 py-1 shadow-soft backdrop-blur">
-            Live Chauffeur Tracking
-          </span>
-        </div>
-      </div>
-    );
-  }
+    // Fit map to visible points
+    if (boundsPoints.length === 1) {
+      map.setView(boundsPoints[0], 14, { animate: true });
+    } else if (boundsPoints.length > 1) {
+      const bounds = L.latLngBounds(boundsPoints);
+      map.fitBounds(bounds, { padding: [55, 55], maxZoom: 15, animate: true });
+    }
+  }, [pickupCoords, dropCoords, userCoords, pickupText, dropText, routePolyline]);
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl border border-border shadow-lift ${className}`} style={{ minHeight: "320px", height: "100%" }}>
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={currentCenter}
-        zoom={13}
-        options={defaultOptions}
-        onLoad={onLoad}
-        onUnmount={onUnmount}
-      >
-        {/* User Current Location Marker */}
-        {userCoords && !pickupCoords && (
-          <MarkerF
-            position={userCoords}
-            title="Your Current Location"
-            icon={{
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: "#1E5AE8",
-              fillOpacity: 1,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 3,
-            }}
-          />
-        )}
+    <div
+      className={`relative overflow-hidden rounded-3xl border border-border shadow-lift ${className}`}
+      style={{ minHeight: "340px", height: "100%" }}
+    >
+      <div ref={containerRef} className="h-full w-full min-h-[340px]" />
 
-        {/* Pickup Marker (P) */}
-        {pickupCoords && (
-          <MarkerF
-            position={pickupCoords}
-            title={`Pickup: ${pickupText || ""}`}
-            label={{
-              text: "P",
-              color: "#FFFFFF",
-              fontWeight: "bold",
-              fontSize: "12px",
-            }}
-          />
-        )}
-
-        {/* Drop-off Marker (D) */}
-        {dropCoords && (
-          <MarkerF
-            position={dropCoords}
-            title={`Drop: ${dropText || ""}`}
-            label={{
-              text: "D",
-              color: "#FFFFFF",
-              fontWeight: "bold",
-              fontSize: "12px",
-            }}
-          />
-        )}
-
-        {/* Official Google DirectionsRenderer Road Route */}
-        {directionsResponse && (
-          <DirectionsRenderer
-            directions={directionsResponse}
-            options={{
-              suppressMarkers: true,
-              polylineOptions: {
-                strokeColor: "#1E5AE8",
-                strokeWeight: 6,
-                strokeOpacity: 0.95,
-              },
-            }}
-          />
-        )}
-
-        {/* Fallback PolylineF Driving Path (Guaranteed visible under all conditions) */}
-        {pickupCoords && dropCoords && (!directionsResponse || polylinePath.length > 0) && (
-          <PolylineF
-            path={polylinePath.length > 0 ? polylinePath : [pickupCoords, dropCoords]}
-            options={{
-              strokeColor: "#1E5AE8",
-              strokeWeight: 6,
-              strokeOpacity: 0.95,
-              geodesic: true,
-            }}
-          />
-        )}
-      </GoogleMap>
+      {/* Floating Status Badge */}
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1 text-[11px] font-semibold text-primary shadow-soft backdrop-blur">
+        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+        {pickupCoords && dropCoords ? "Live Route Active" : pickupCoords ? "Pickup Selected" : "Select Locations"}
+      </div>
     </div>
   );
 }
