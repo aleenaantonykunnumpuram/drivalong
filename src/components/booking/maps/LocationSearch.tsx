@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Autocomplete } from "@react-google-maps/api";
 import { MapPin, Navigation, AlertTriangle, X, CheckCircle2, ChevronRight, Loader2 } from "lucide-react";
+import { searchLocationSuggestions, type PlaceSuggestion } from "@/lib/placesAutocomplete";
 
 interface LocationSearchProps {
   isLoaded: boolean;
@@ -8,6 +9,7 @@ interface LocationSearchProps {
   drop: string;
   pickupVerified?: boolean;
   dropVerified?: boolean;
+  biasCoords?: { lat: number; lng: number } | null;
   onPickupChange: (val: string, coords?: { lat: number; lng: number }, verified?: boolean) => void;
   onDropChange: (val: string, coords?: { lat: number; lng: number }, verified?: boolean) => void;
   onUseCurrentLocation: () => void;
@@ -16,18 +18,13 @@ interface LocationSearchProps {
   onClearError?: () => void;
 }
 
-interface PlaceSuggestion {
-  display_name: string;
-  lat: number;
-  lng: number;
-}
-
 export function LocationSearch({
   isLoaded,
   pickup,
   drop,
   pickupVerified = false,
   dropVerified = false,
+  biasCoords = null,
   onPickupChange,
   onDropChange,
   onUseCurrentLocation,
@@ -45,7 +42,7 @@ export function LocationSearch({
 
   // Fetch suggestions for Pickup when typing and unverified
   useEffect(() => {
-    if (!pickup || pickup.trim().length < 3 || pickupVerified) {
+    if (!pickup || pickup.trim().length < 2 || pickupVerified) {
       setPickupSuggestions([]);
       return;
     }
@@ -53,30 +50,21 @@ export function LocationSearch({
     const timer = setTimeout(async () => {
       setLoadingPickupSug(true);
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&limit=4&countrycodes=in`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setPickupSuggestions(
-            data.map((item) => ({
-              display_name: item.display_name,
-              lat: parseFloat(item.lat),
-              lng: parseFloat(item.lon),
-            }))
-          );
-        }
+        const results = await searchLocationSuggestions(pickup, biasCoords);
+        setPickupSuggestions(results);
       } catch (e) {
         console.warn("Failed to fetch pickup suggestions:", e);
       } finally {
         setLoadingPickupSug(false);
       }
-    }, 350);
+    }, 280);
 
     return () => clearTimeout(timer);
-  }, [pickup, pickupVerified]);
+  }, [pickup, pickupVerified, biasCoords]);
 
   // Fetch suggestions for Drop when typing and unverified
   useEffect(() => {
-    if (!drop || drop.trim().length < 3 || dropVerified) {
+    if (!drop || drop.trim().length < 2 || dropVerified) {
       setDropSuggestions([]);
       return;
     }
@@ -84,26 +72,17 @@ export function LocationSearch({
     const timer = setTimeout(async () => {
       setLoadingDropSug(true);
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}&limit=4&countrycodes=in`);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setDropSuggestions(
-            data.map((item) => ({
-              display_name: item.display_name,
-              lat: parseFloat(item.lat),
-              lng: parseFloat(item.lon),
-            }))
-          );
-        }
+        const results = await searchLocationSuggestions(drop, biasCoords);
+        setDropSuggestions(results);
       } catch (e) {
         console.warn("Failed to fetch drop suggestions:", e);
       } finally {
         setLoadingDropSug(false);
       }
-    }, 350);
+    }, 280);
 
     return () => clearTimeout(timer);
-  }, [drop, dropVerified]);
+  }, [drop, dropVerified, biasCoords]);
 
   const onPickupPlaceChanged = () => {
     if (pickupAutocomplete !== null) {
@@ -159,7 +138,7 @@ export function LocationSearch({
       )}
 
       {/* Pickup Input Field */}
-      <div className="relative">
+      <div className="relative z-30">
         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           <span>Pickup Location</span>
           <button
@@ -173,18 +152,25 @@ export function LocationSearch({
           </button>
         </div>
 
-        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 overflow-hidden ${pickupVerified ? "border-primary/40" : "border-border"}`}>
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 ${pickupVerified ? "border-primary/40" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
               onLoad={(ac) => setPickupAutocomplete(ac)}
               onPlaceChanged={onPickupPlaceChanged}
-              className="flex-1 min-w-0 w-full overflow-hidden"
+              className="flex-1 min-w-0 w-full"
             >
               <input
                 type="text"
                 value={pickup}
                 onChange={(e) => onPickupChange(e.target.value, undefined, false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && pickupSuggestions[0]) {
+                    e.preventDefault();
+                    onPickupChange(pickupSuggestions[0].display_name, { lat: pickupSuggestions[0].lat, lng: pickupSuggestions[0].lng }, true);
+                    setPickupSuggestions([]);
+                  }
+                }}
                 placeholder="Search pickup address..."
                 className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
               />
@@ -194,6 +180,13 @@ export function LocationSearch({
               type="text"
               value={pickup}
               onChange={(e) => onPickupChange(e.target.value, undefined, false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && pickupSuggestions[0]) {
+                  e.preventDefault();
+                  onPickupChange(pickupSuggestions[0].display_name, { lat: pickupSuggestions[0].lat, lng: pickupSuggestions[0].lng }, true);
+                  setPickupSuggestions([]);
+                }
+              }}
               placeholder="Enter pickup location..."
               className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
             />
@@ -207,7 +200,7 @@ export function LocationSearch({
 
         {/* Pickup Instant Dropdown Suggestions */}
         {!pickupVerified && pickupSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-lift animate-rise">
+          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
               <span>Matching Locations</span>
               {loadingPickupSug && <Loader2 className="h-3 w-3 animate-spin" />}
@@ -232,23 +225,30 @@ export function LocationSearch({
       </div>
 
       {/* Destination Input Field (Optional) */}
-      <div className="relative">
+      <div className="relative z-20">
         <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           <span>Destination <span className="text-[10px] lowercase font-normal text-muted-foreground">(optional for hourly/daily)</span></span>
         </div>
 
-        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 overflow-hidden ${dropVerified ? "border-secondary/50" : "border-border"}`}>
+        <div className={`flex items-center gap-3 rounded-2xl border bg-background px-4 py-3 transition focus-within:border-primary focus-within:shadow-ring min-w-0 ${dropVerified ? "border-secondary/50" : "border-border"}`}>
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-secondary" />
           {isLoaded && window.google?.maps?.places ? (
             <Autocomplete
               onLoad={(ac) => setDropAutocomplete(ac)}
               onPlaceChanged={onDropPlaceChanged}
-              className="flex-1 min-w-0 w-full overflow-hidden"
+              className="flex-1 min-w-0 w-full"
             >
               <input
                 type="text"
                 value={drop}
                 onChange={(e) => onDropChange(e.target.value, undefined, false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && dropSuggestions[0]) {
+                    e.preventDefault();
+                    onDropChange(dropSuggestions[0].display_name, { lat: dropSuggestions[0].lat, lng: dropSuggestions[0].lng }, true);
+                    setDropSuggestions([]);
+                  }
+                }}
                 placeholder="Search destination (optional for hourly/daily)..."
                 className="w-full min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
               />
@@ -258,6 +258,13 @@ export function LocationSearch({
               type="text"
               value={drop}
               onChange={(e) => onDropChange(e.target.value, undefined, false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && dropSuggestions[0]) {
+                  e.preventDefault();
+                  onDropChange(dropSuggestions[0].display_name, { lat: dropSuggestions[0].lat, lng: dropSuggestions[0].lng }, true);
+                  setDropSuggestions([]);
+                }
+              }}
               placeholder="Enter destination (optional)..."
               className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm outline-none placeholder:text-muted-foreground truncate"
             />
@@ -271,7 +278,7 @@ export function LocationSearch({
 
         {/* Drop Instant Dropdown Suggestions */}
         {!dropVerified && dropSuggestions.length > 0 && (
-          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-lift animate-rise">
+          <div className="absolute left-0 right-0 top-full z-50 mt-1.5 overflow-hidden rounded-2xl border border-border bg-background p-1.5 shadow-2xl animate-rise">
             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
               <span>Matching Destinations</span>
               {loadingDropSug && <Loader2 className="h-3 w-3 animate-spin" />}

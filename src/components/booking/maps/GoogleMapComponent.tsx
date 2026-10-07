@@ -5,6 +5,7 @@ import { RouteMap } from "./RouteMap";
 import { BookingSummary } from "./BookingSummary";
 import { computeHaversineDistance, calculateFare, DURATION_HOURS, type FareBreakdown, type ServiceType, type DurationOption } from "./fareUtils";
 import { getTripEstimate } from "@/lib/api/trip.functions";
+import { searchLocationSuggestions } from "@/lib/placesAutocomplete";
 
 declare global {
   interface Window {
@@ -224,16 +225,14 @@ export function GoogleMapComponent({
 
   // Auto-geocode Pickup text if typed manually without selecting dropdown
   useEffect(() => {
-    if (!pickup || pickup.trim().length < 3 || pickupVerified) return;
+    if (!pickup || pickup.trim().length < 2 || pickupVerified) return;
 
     const timer = setTimeout(async () => {
       const fallbackGeocode = async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickup)}&limit=1`);
-          const data = await res.json();
-          if (data && data[0]) {
-            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-            handlePickupChange(pickup, coords, true);
+          const results = await searchLocationSuggestions(pickup, userCoords || pickupCoords);
+          if (results && results[0]) {
+            handlePickupChange(pickup, { lat: results[0].lat, lng: results[0].lng }, true);
           }
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
@@ -258,23 +257,21 @@ export function GoogleMapComponent({
       } else {
         fallbackGeocode();
       }
-    }, 500);
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, [pickup, pickupVerified, isLoaded, handlePickupChange]);
+  }, [pickup, pickupVerified, isLoaded, handlePickupChange, userCoords, pickupCoords]);
 
   // Auto-geocode Drop text if typed manually without selecting dropdown
   useEffect(() => {
-    if (!drop || drop.trim().length < 3 || dropVerified) return;
+    if (!drop || drop.trim().length < 2 || dropVerified) return;
 
     const timer = setTimeout(async () => {
       const fallbackGeocode = async () => {
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(drop)}&limit=1`);
-          const data = await res.json();
-          if (data && data[0]) {
-            const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-            handleDropChange(drop, coords, true);
+          const results = await searchLocationSuggestions(drop, pickupCoords || userCoords);
+          if (results && results[0]) {
+            handleDropChange(drop, { lat: results[0].lat, lng: results[0].lng }, true);
           }
         } catch (err) {
           console.warn("Fallback geocoding failed:", err);
@@ -299,10 +296,10 @@ export function GoogleMapComponent({
       } else {
         fallbackGeocode();
       }
-    }, 500);
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, [drop, dropVerified, isLoaded, handleDropChange]);
+  }, [drop, dropVerified, isLoaded, handleDropChange, pickupCoords, userCoords]);
 
   // Unified Route & Fare Fetching effect
   useEffect(() => {
@@ -378,17 +375,18 @@ export function GoogleMapComponent({
   );
 
   return (
-    <div className={`space-y-6 w-full max-w-full overflow-hidden ${className}`}>
+    <div className={`space-y-6 w-full max-w-full ${className}`}>
       {/* Top 2-Column Desktop Grid Layout */}
-      <div className="grid gap-6 lg:grid-cols-2 lg:items-start w-full max-w-full overflow-hidden">
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start w-full max-w-full">
         {/* Left Column: Location Search & Ride Metrics */}
-        <div className="space-y-5 min-w-0 w-full overflow-hidden">
+        <div className="space-y-5 min-w-0 w-full relative z-20">
           <LocationSearch
             isLoaded={isLoaded && !loadError}
             pickup={pickup}
             drop={drop}
             pickupVerified={pickupVerified}
             dropVerified={dropVerified}
+            biasCoords={pickupCoords || userCoords || { lat: 10.5276, lng: 76.2144 }}
             onPickupChange={(val, coords, verified) => {
               handlePickupChange(val, coords, verified);
             }}
