@@ -115,8 +115,8 @@ function Contact() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full name" />
               <Field label="Email address" type="email" />
-              <Field label="Phone number" placeholder="+91 98450 12345" />
-              <Field label="Subject" placeholder="Business enquiry" />
+              <Field label="Phone number" type="tel" />
+              <Field label="Subject" />
             </div>
 
             <div>
