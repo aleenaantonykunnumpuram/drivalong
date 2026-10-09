@@ -214,3 +214,229 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
       };
     }
   });
+
+export interface ResetPasswordPayload {
+  email: string;
+  newPassword: string;
+}
+
+export interface SendOtpPayload {
+  phone: string;
+}
+
+export interface VerifyOtpPayload {
+  phone: string;
+  otp: string;
+}
+
+export interface OtpResponse {
+  success: boolean;
+  message: string;
+  previewOtp?: string;
+  user?: AuthUser;
+}
+
+// Server function for Customer Password Reset (Edits password in MongoDB)
+export const resetPasswordFn = createServerFn({ method: "POST" })
+  .validator((data: ResetPasswordPayload) => data)
+  .handler(async ({ data }): Promise<AuthResponse> => {
+    try {
+      const { email, newPassword } = data || {};
+      const cleanEmail = email ? email.toLowerCase().trim() : "";
+
+      if (!cleanEmail || !newPassword) {
+        return { success: false, message: "Please provide both your registered email and a new password." };
+      }
+
+      const passCheck = validatePassword(newPassword);
+      if (!passCheck.valid) {
+        return { success: false, message: passCheck.message || "Invalid password format." };
+      }
+
+      const { connectToDatabase } = await import("./mongodb");
+      const Customer = (await import("../models/Customer")).default;
+      const bcryptModule = await import("bcryptjs");
+      const bcrypt = bcryptModule.default || bcryptModule;
+
+      await connectToDatabase();
+
+      const customer = await Customer.findOne({ email: cleanEmail });
+      if (!customer) {
+        return { success: false, message: "No registered account found with this email address." };
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      customer.password = hashedPassword;
+      await customer.save();
+
+      return {
+        success: true,
+        message: "Password updated successfully in database! You can now sign in with your new password.",
+      };
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to update password in database.",
+      };
+    }
+  });
+
+// Server function to Send OTP to Phone Number
+export const sendPhoneOtpFn = createServerFn({ method: "POST" })
+  .validator((data: SendOtpPayload) => data)
+  .handler(async ({ data }): Promise<OtpResponse> => {
+    try {
+      const rawPhone = data?.phone || "";
+      const digits = rawPhone.replace(/\D/g, "");
+      if (digits.length < 10) {
+        return { success: false, message: "Please enter a valid 10-digit mobile number." };
+      }
+
+      // Format cleanly with +91 country code
+      const cleanPhone = digits.length === 10 ? `+91 ${digits}` : `+${digits}`;
+
+      // Generate random 6-digit OTP code
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const { connectToDatabase } = await import("./mongodb");
+      const OtpVerification = (await import("../models/OtpVerification")).default;
+
+      await connectToDatabase();
+
+      // Clear any prior pending OTP for this number
+      await OtpVerification.deleteMany({ identifier: cleanPhone });
+
+      // Save new OTP with 10 minute expiry
+      await OtpVerification.create({
+        identifier: cleanPhone,
+        otp,
+        type: "phone_login",
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      console.log(`\n========================================`);
+      console.log(`[SMS OTP SERVICE] Verification Code for ${cleanPhone}: ${otp}`);
+      console.log(`========================================\n`);
+
+      // If Twilio credentials are configured in .env, send real SMS
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+        try {
+          const authString = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64");
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
+          const body = new URLSearchParams({
+            To: cleanPhone.replace(/\s+/g, ""),
+            From: process.env.TWILIO_PHONE_NUMBER,
+            Body: `Your DrivAlong verification code is: ${otp}. Valid for 10 minutes.`,
+          });
+          await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${authString}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: body.toString(),
+          });
+        } catch (smsErr) {
+          console.warn("Twilio SMS dispatch failed:", smsErr);
+        }
+      }
+
+      return {
+        success: true,
+        message: `OTP code sent to ${cleanPhone}`,
+        previewOtp: otp,
+      };
+    } catch (error: any) {
+      console.error("Send OTP error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to send OTP. Please try again.",
+      };
+    }
+  });
+
+// Server function to Verify Phone OTP & Sign In
+export const verifyPhoneOtpFn = createServerFn({ method: "POST" })
+  .validator((data: VerifyOtpPayload) => data)
+  .handler(async ({ data }): Promise<AuthResponse> => {
+    try {
+      const { phone: rawPhone, otp: rawOtp } = data || {};
+      const digits = (rawPhone || "").replace(/\D/g, "");
+      const cleanOtp = (rawOtp || "").trim();
+
+      if (digits.length < 10) {
+        return { success: false, message: "Please provide a valid phone number." };
+      }
+      if (cleanOtp.length !== 6) {
+        return { success: false, message: "Please enter the complete 6-digit OTP code." };
+      }
+
+      const cleanPhone = digits.length === 10 ? `+91 ${digits}` : `+${digits}`;
+
+      const { connectToDatabase } = await import("./mongodb");
+      const OtpVerification = (await import("../models/OtpVerification")).default;
+      const Customer = (await import("../models/Customer")).default;
+      const bcryptModule = await import("bcryptjs");
+      const bcrypt = bcryptModule.default || bcryptModule;
+
+      await connectToDatabase();
+
+      // Find active OTP record
+      const record = await OtpVerification.findOne({
+        identifier: cleanPhone,
+        otp: cleanOtp,
+        type: "phone_login",
+      });
+
+      if (!record || record.expiresAt < new Date()) {
+        return { success: false, message: "Invalid or expired OTP code. Please request a new one." };
+      }
+
+      // Delete used OTP
+      await OtpVerification.deleteOne({ _id: record._id });
+
+      // Find or create customer
+      let customer = await Customer.findOne({
+        $or: [
+          { phone: cleanPhone },
+          { phone: digits },
+          { phone: digits.slice(-10) },
+        ],
+      });
+
+      if (!customer) {
+        // Auto-create customer account for phone login
+        const randomPass = await bcrypt.hash(Math.random().toString(36), 10);
+        const last4 = digits.slice(-4);
+        customer = await Customer.create({
+          name: `User ${last4}`,
+          email: `phone_${digits.slice(-10)}@drivalong.user`,
+          phone: cleanPhone,
+          password: randomPass,
+          role: "customer",
+        });
+      }
+
+      return {
+        success: true,
+        message: `Signed in successfully via phone verification! Welcome back, ${customer.name}!`,
+        user: {
+          id: customer._id.toString(),
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone,
+          role: customer.role || "customer",
+          createdAt: customer.createdAt ? customer.createdAt.toISOString() : new Date().toISOString(),
+        },
+      };
+    } catch (error: any) {
+      console.error("Verify OTP error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to verify OTP.",
+      };
+    }
+  });
