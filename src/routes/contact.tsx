@@ -113,8 +113,8 @@ function Contact() {
             <h3 className="text-lg font-bold text-foreground mb-4">Send Us a Message</h3>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full name" placeholder="Ananya Sharma" />
-              <Field label="Email address" type="email" placeholder="ananya@work.com" />
+              <Field label="Full name" />
+              <Field label="Email address" type="email" />
               <Field label="Phone number" placeholder="+91 98450 12345" />
               <Field label="Subject" placeholder="Business enquiry" />
             </div>
