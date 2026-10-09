@@ -331,7 +331,20 @@ export const sendPasswordResetOtpFn = createServerFn({ method: "POST" })
               from: process.env.RESEND_FROM || "DrivAlong Security <onboarding@resend.dev>",
               to: cleanEmail,
               subject: "Your DrivAlong Password Reset Verification Code",
-              text: `Your password reset code is: ${otp}. Valid for 10 minutes.`,
+              text: `Hi ${customer.name || "Customer"},\n\nYour 6-digit password reset verification code is: ${otp}\n\nThis code is valid for 10 minutes. If you did not request this, please ignore this email.\n\nWarm regards,\nDriv A Long Team`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 16px;">
+                  <h2 style="color: #0f172a; margin-top: 0;">Password Reset Request</h2>
+                  <p style="color: #475569; font-size: 14px;">Hi ${customer.name || "Customer"},</p>
+                  <p style="color: #475569; font-size: 14px;">We received a request to reset your DrivAlong account password. Use the verification code below to set a new password:</p>
+                  <div style="background-color: #f1f5f9; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
+                    <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e3a8a;">${otp}</span>
+                  </div>
+                  <p style="color: #64748b; font-size: 12px;">This code expires in 10 minutes. If you did not request this reset, your account is safe and you can ignore this email.</p>
+                  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                  <p style="color: #94a3b8; font-size: 11px; margin: 0;">Driv A Long Private Limited • Cochin, Kerala</p>
+                </div>
+              `,
             }),
           });
         } catch (resendErr) {
