@@ -215,8 +215,13 @@ export const signInCustomerFn = createServerFn({ method: "POST" })
     }
   });
 
+export interface SendPasswordResetOtpPayload {
+  email: string;
+}
+
 export interface ResetPasswordPayload {
   email: string;
+  otp: string;
   newPassword: string;
 }
 
@@ -238,16 +243,131 @@ export interface OtpResponse {
   user?: AuthUser;
 }
 
-// Server function for Customer Password Reset (Edits password in MongoDB)
+// Server function to Send Password Reset OTP to Email
+export const sendPasswordResetOtpFn = createServerFn({ method: "POST" })
+  .validator((data: SendPasswordResetOtpPayload) => data)
+  .handler(async ({ data }): Promise<OtpResponse> => {
+    try {
+      const rawEmail = data?.email || "";
+      const cleanEmail = rawEmail.toLowerCase().trim();
+      if (!cleanEmail || !cleanEmail.includes("@")) {
+        return { success: false, message: "Please provide a valid registered email address." };
+      }
+
+      const { connectToDatabase } = await import("./mongodb");
+      const Customer = (await import("../models/Customer")).default;
+      const OtpVerification = (await import("../models/OtpVerification")).default;
+
+      await connectToDatabase();
+
+      const customer = await Customer.findOne({ email: cleanEmail });
+      if (!customer) {
+        return { success: false, message: "No registered account found with this email address." };
+      }
+
+      // Generate random 6-digit OTP code
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store or update in MongoDB OtpVerification collection
+      await OtpVerification.findOneAndUpdate(
+        { identifier: cleanEmail, type: "password_reset" },
+        { otp, expiresAt },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+      console.log(`\n========================================`);
+      console.log(`[EMAIL PASSWORD RESET OTP] Code for ${cleanEmail}: ${otp}`);
+      console.log(`========================================\n`);
+
+      // 1. SMTP Dispatch (e.g. Gmail App Password or custom SMTP)
+      if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+        try {
+          const nodemailer = await import("nodemailer");
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || "smtp.gmail.com",
+            port: Number(process.env.SMTP_PORT) || 465,
+            secure: Number(process.env.SMTP_PORT) === 465 || !process.env.SMTP_PORT,
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS,
+            },
+          });
+
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || `"DrivAlong Security" <${process.env.SMTP_USER}>`,
+            to: cleanEmail,
+            subject: "Your DrivAlong Password Reset Verification Code",
+            text: `Hi ${customer.name || "Customer"},\n\nYour 6-digit password reset verification code is: ${otp}\n\nThis code is valid for 10 minutes. If you did not request this, please ignore this email.\n\nWarm regards,\nDriv A Long Team`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 16px;">
+                <h2 style="color: #0f172a; margin-top: 0;">Password Reset Request</h2>
+                <p style="color: #475569; font-size: 14px;">Hi ${customer.name || "Customer"},</p>
+                <p style="color: #475569; font-size: 14px;">We received a request to reset your DrivAlong account password. Use the verification code below to set a new password:</p>
+                <div style="background-color: #f1f5f9; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
+                  <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e3a8a;">${otp}</span>
+                </div>
+                <p style="color: #64748b; font-size: 12px;">This code expires in 10 minutes. If you did not request this reset, your account is safe and you can ignore this email.</p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                <p style="color: #94a3b8; font-size: 11px; margin: 0;">Driv A Long Private Limited • Cochin, Kerala</p>
+              </div>
+            `,
+          });
+        } catch (mailErr) {
+          console.warn("SMTP email dispatch failed:", mailErr);
+        }
+      }
+
+      // 2. Resend Dispatch (if configured)
+      if (process.env.RESEND_API_KEY) {
+        try {
+          await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: process.env.RESEND_FROM || "DrivAlong Security <onboarding@resend.dev>",
+              to: cleanEmail,
+              subject: "Your DrivAlong Password Reset Verification Code",
+              text: `Your password reset code is: ${otp}. Valid for 10 minutes.`,
+            }),
+          });
+        } catch (resendErr) {
+          console.warn("Resend email dispatch failed:", resendErr);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Verification code sent to ${cleanEmail}`,
+        previewOtp: otp,
+      };
+    } catch (error: any) {
+      console.error("Send password reset OTP error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to send reset code. Please try again.",
+      };
+    }
+  });
+
+// Server function for Customer Password Reset (Requires 6-Digit OTP Verification)
 export const resetPasswordFn = createServerFn({ method: "POST" })
   .validator((data: ResetPasswordPayload) => data)
   .handler(async ({ data }): Promise<AuthResponse> => {
     try {
-      const { email, newPassword } = data || {};
+      const { email, otp, newPassword } = data || {};
       const cleanEmail = email ? email.toLowerCase().trim() : "";
+      const cleanOtp = (otp || "").trim();
 
-      if (!cleanEmail || !newPassword) {
-        return { success: false, message: "Please provide both your registered email and a new password." };
+      if (!cleanEmail || !cleanOtp || !newPassword) {
+        return { success: false, message: "Please provide your email, 6-digit verification code, and new password." };
+      }
+
+      if (cleanOtp.length !== 6) {
+        return { success: false, message: "Please provide a valid 6-digit verification code." };
       }
 
       const passCheck = validatePassword(newPassword);
@@ -257,11 +377,41 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
 
       const { connectToDatabase } = await import("./mongodb");
       const Customer = (await import("../models/Customer")).default;
+      const OtpVerification = (await import("../models/OtpVerification")).default;
       const bcryptModule = await import("bcryptjs");
       const bcrypt = bcryptModule.default || bcryptModule;
 
       await connectToDatabase();
 
+      // Verify the OTP against MongoDB OtpVerification collection
+      const verification = await OtpVerification.findOne({
+        identifier: cleanEmail,
+        type: "password_reset",
+      });
+
+      if (!verification) {
+        return {
+          success: false,
+          message: "No verification code was requested for this email, or it has expired.",
+        };
+      }
+
+      if (new Date() > verification.expiresAt) {
+        await OtpVerification.deleteOne({ _id: verification._id });
+        return {
+          success: false,
+          message: "Verification code has expired. Please request a new code.",
+        };
+      }
+
+      if (verification.otp !== cleanOtp) {
+        return {
+          success: false,
+          message: "Invalid verification code. Please check your email and try again.",
+        };
+      }
+
+      // OTP is valid! Find customer and update password
       const customer = await Customer.findOne({ email: cleanEmail });
       if (!customer) {
         return { success: false, message: "No registered account found with this email address." };
@@ -272,6 +422,9 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
 
       customer.password = hashedPassword;
       await customer.save();
+
+      // Delete the used OTP record
+      await OtpVerification.deleteOne({ _id: verification._id });
 
       return {
         success: true,
