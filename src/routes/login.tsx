@@ -22,6 +22,7 @@ import {
   verifyPhoneOtpFn,
   validatePassword,
 } from "@/lib/auth-server";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
 import { setStoredUser } from "@/lib/auth";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
@@ -47,6 +48,8 @@ function Login() {
 
   // Phone OTP sign in state
   const [phone, setPhone] = useState("");
+  const [otpChannel, setOtpChannel] = useState<"whatsapp" | "sms">("whatsapp");
+  const [activeSentChannel, setActiveSentChannel] = useState<"whatsapp" | "sms">("whatsapp");
   const [phoneStep, setPhoneStep] = useState<"enter_phone" | "enter_otp">("enter_phone");
   const [phoneOtp, setPhoneOtp] = useState("");
   const [previewOtpCode, setPreviewOtpCode] = useState<string | null>(null);
@@ -142,9 +145,9 @@ function Login() {
     }
   };
 
-  // 2. Submit Send Phone OTP
-  const handleSendPhoneOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 2. Submit Send Phone OTP (Supports WhatsApp & SMS)
+  const handleSendPhoneOtp = async (e?: React.FormEvent, targetChannel: "whatsapp" | "sms" = otpChannel) => {
+    if (e) e.preventDefault();
     setErrorMsg("");
 
     const digits = phone.replace(/\D/g, "");
@@ -156,21 +159,23 @@ function Login() {
     setLoading(true);
     try {
       const res = await sendPhoneOtpFn({
-        data: { phone },
+        data: { phone, channel: targetChannel },
       });
 
       if (res.success) {
         setPhoneStep("enter_otp");
         setPhoneOtp("");
         setPreviewOtpCode(res.previewOtp || null);
+        setActiveSentChannel(res.channel || targetChannel);
         setOtpTimer(30);
 
+        const channelLabel = (res.channel || targetChannel) === "whatsapp" ? "WhatsApp" : "SMS";
         if (res.previewOtp) {
-          toast.success(`OTP sent to ${phone}! Verification Code: ${res.previewOtp}`, {
+          toast.success(`OTP sent to ${channelLabel} (${phone})! Code: ${res.previewOtp}`, {
             duration: 8000,
           });
         } else {
-          toast.success(`Verification code sent to ${phone}`);
+          toast.success(`Verification code dispatched to ${channelLabel} (${phone})`);
         }
       } else {
         setErrorMsg(res.message || "Failed to send OTP.");
@@ -280,7 +285,7 @@ function Login() {
           </p>
           <ul className="mt-8 space-y-3 text-sm font-medium">
             {[
-              "Instant SMS OTP or password authentication",
+              "Instant WhatsApp & SMS OTP authentication",
               "MongoDB secured customer credentials",
               "Direct chauffeur booking with transparent base fares",
               "24/7 dedicated support via WhatsApp",
@@ -529,11 +534,48 @@ function Login() {
                 </form>
               )}
 
-              {/* MODE 2: PHONE NUMBER OTP SIGN IN */}
+              {/* MODE 2: PHONE NUMBER OTP SIGN IN (WHATSAPP & SMS) */}
               {mode === "phone" && (
                 <div>
                   {phoneStep === "enter_phone" ? (
-                    <form onSubmit={handleSendPhoneOtp} className="space-y-4">
+                    <form onSubmit={(e) => handleSendPhoneOtp(e, otpChannel)} className="space-y-4">
+                      {/* Delivery Channel Selector */}
+                      <div>
+                        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">
+                          Delivery Channel
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOtpChannel("whatsapp")}
+                            className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs font-semibold transition cursor-pointer ${
+                              otpChannel === "whatsapp"
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 shadow-sm ring-1 ring-emerald-500/30"
+                                : "border-border bg-background text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <WhatsAppIcon className="h-4 w-4 fill-current text-[#25D366]" />
+                            <span>WhatsApp OTP</span>
+                            <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">
+                              Free
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setOtpChannel("sms")}
+                            className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs font-semibold transition cursor-pointer ${
+                              otpChannel === "sms"
+                                ? "border-primary/40 bg-primary/10 text-primary shadow-sm ring-1 ring-primary/30"
+                                : "border-border bg-background text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            <Phone className="h-3.5 w-3.5" />
+                            <span>Standard SMS</span>
+                          </button>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="mb-1 block text-xs font-semibold text-muted-foreground">
                           Mobile Number
@@ -548,21 +590,32 @@ function Login() {
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        We'll send a 6-digit verification code via SMS to this number.
+                        {otpChannel === "whatsapp"
+                          ? "We will send an automated 6-digit verification code to your WhatsApp."
+                          : "We will send an automated 6-digit verification code via cellular SMS."}
                       </p>
 
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:brightness-110 disabled:opacity-50 cursor-pointer"
+                        className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold shadow-soft transition disabled:opacity-50 cursor-pointer ${
+                          otpChannel === "whatsapp"
+                            ? "bg-[#25D366] text-white hover:bg-[#20ba59]"
+                            : "bg-primary text-primary-foreground hover:brightness-110"
+                        }`}
                       >
                         {loading ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" /> Sending OTP...
                           </>
+                        ) : otpChannel === "whatsapp" ? (
+                          <>
+                            <WhatsAppIcon className="h-4 w-4 fill-current" /> Send OTP via WhatsApp{" "}
+                            <ArrowRight className="h-4 w-4" />
+                          </>
                         ) : (
                           <>
-                            Send 6-Digit OTP <ArrowRight className="h-4 w-4" />
+                            Send OTP via SMS <ArrowRight className="h-4 w-4" />
                           </>
                         )}
                       </button>
@@ -581,8 +634,22 @@ function Login() {
                         >
                           <ArrowLeft className="h-3.5 w-3.5" /> Change Number ({phone})
                         </button>
-                        <span className="text-[11px] font-semibold text-muted-foreground">
-                          SMS Verification
+                        <span
+                          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                            activeSentChannel === "whatsapp"
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                              : "bg-primary/10 text-primary border-primary/20"
+                          }`}
+                        >
+                          {activeSentChannel === "whatsapp" ? (
+                            <>
+                              <WhatsAppIcon className="h-3 w-3 fill-current text-[#25D366]" /> WhatsApp Verification
+                            </>
+                          ) : (
+                            <>
+                              <Phone className="h-3 w-3" /> SMS Verification
+                            </>
+                          )}
                         </span>
                       </div>
 
@@ -627,21 +694,50 @@ function Login() {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
-                        <span>Didn't receive the SMS code?</span>
-                        {otpTimer > 0 ? (
-                          <span className="font-semibold text-muted-foreground">
-                            Resend in {otpTimer}s
+                      <div className="flex flex-col gap-2 pt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center justify-between">
+                          <span>
+                            Didn't receive code on {activeSentChannel === "whatsapp" ? "WhatsApp" : "SMS"}?
                           </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleSendPhoneOtp}
-                            disabled={loading}
-                            className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
-                          >
-                            <RotateCcw className="h-3 w-3" /> Resend OTP
-                          </button>
+                          {otpTimer > 0 ? (
+                            <span className="font-semibold text-muted-foreground">
+                              Resend in {otpTimer}s
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSendPhoneOtp(undefined, activeSentChannel)}
+                              disabled={loading}
+                              className="inline-flex items-center gap-1 font-semibold text-primary hover:underline cursor-pointer"
+                            >
+                              <RotateCcw className="h-3 w-3" /> Resend OTP
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Alternate delivery channel option */}
+                        {otpTimer === 0 && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextChannel = activeSentChannel === "whatsapp" ? "sms" : "whatsapp";
+                                handleSendPhoneOtp(undefined, nextChannel);
+                              }}
+                              disabled={loading}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                            >
+                              {activeSentChannel === "whatsapp" ? (
+                                <>
+                                  <Phone className="h-3 w-3" /> Try sending via SMS instead
+                                </>
+                              ) : (
+                                <>
+                                  <WhatsAppIcon className="h-3.5 w-3.5 fill-current text-[#25D366]" /> Try sending via WhatsApp instead
+                                </>
+                              )}
+                            </button>
+                          </div>
                         )}
                       </div>
 

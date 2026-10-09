@@ -222,6 +222,7 @@ export interface ResetPasswordPayload {
 
 export interface SendOtpPayload {
   phone: string;
+  channel?: "whatsapp" | "sms";
 }
 
 export interface VerifyOtpPayload {
@@ -233,6 +234,7 @@ export interface OtpResponse {
   success: boolean;
   message: string;
   previewOtp?: string;
+  channel?: "whatsapp" | "sms";
   user?: AuthUser;
 }
 
@@ -284,12 +286,13 @@ export const resetPasswordFn = createServerFn({ method: "POST" })
     }
   });
 
-// Server function to Send OTP to Phone Number
+// Server function to Send OTP to Phone Number (Supports WhatsApp & SMS)
 export const sendPhoneOtpFn = createServerFn({ method: "POST" })
   .validator((data: SendOtpPayload) => data)
   .handler(async ({ data }): Promise<OtpResponse> => {
     try {
       const rawPhone = data?.phone || "";
+      const channel = data?.channel || "whatsapp";
       const digits = rawPhone.replace(/\D/g, "");
       if (digits.length < 10) {
         return { success: false, message: "Please enter a valid 10-digit mobile number." };
@@ -297,6 +300,7 @@ export const sendPhoneOtpFn = createServerFn({ method: "POST" })
 
       // Format cleanly with +91 country code
       const cleanPhone = digits.length === 10 ? `+91 ${digits}` : `+${digits}`;
+      const plainDigits = digits.length === 10 ? `91${digits}` : digits;
 
       // Generate random 6-digit OTP code
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -318,36 +322,75 @@ export const sendPhoneOtpFn = createServerFn({ method: "POST" })
       });
 
       console.log(`\n========================================`);
-      console.log(`[SMS OTP SERVICE] Verification Code for ${cleanPhone}: ${otp}`);
+      console.log(`[${channel === "whatsapp" ? "WHATSAPP" : "SMS"} OTP SERVICE] Verification Code for ${cleanPhone}: ${otp}`);
       console.log(`========================================\n`);
 
-      // If Twilio credentials are configured in .env, send real SMS
-      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_PHONE_NUMBER) {
+      // 1. Meta (WhatsApp) Cloud API Dispatch (Official 1,000 Free conversations/month)
+      if (channel === "whatsapp" && process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN) {
+        try {
+          const metaUrl = `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+          await fetch(metaUrl, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              messaging_product: "whatsapp",
+              recipient_type: "individual",
+              to: plainDigits,
+              type: "text",
+              text: {
+                preview_url: false,
+                body: `Your DrivAlong login verification code is: *${otp}*. Valid for 10 minutes. Do not share this code with anyone.`,
+              },
+            }),
+          });
+        } catch (metaErr) {
+          console.warn("Meta WhatsApp API dispatch failed:", metaErr);
+        }
+      }
+
+      // 2. Twilio WhatsApp or SMS Dispatch (if configured)
+      if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
         try {
           const authString = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString("base64");
           const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Messages.json`;
-          const body = new URLSearchParams({
-            To: cleanPhone.replace(/\s+/g, ""),
-            From: process.env.TWILIO_PHONE_NUMBER,
-            Body: `Your DrivAlong verification code is: ${otp}. Valid for 10 minutes.`,
-          });
-          await fetch(twilioUrl, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${authString}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: body.toString(),
-          });
+          const isWhatsApp = channel === "whatsapp" && process.env.TWILIO_WHATSAPP_NUMBER;
+          
+          const fromNumber = isWhatsApp
+            ? `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`
+            : process.env.TWILIO_PHONE_NUMBER;
+
+          const toNumber = isWhatsApp
+            ? `whatsapp:+${plainDigits}`
+            : cleanPhone.replace(/\s+/g, "");
+
+          if (fromNumber) {
+            const body = new URLSearchParams({
+              To: toNumber,
+              From: fromNumber,
+              Body: `Your DrivAlong verification code is: ${otp}. Valid for 10 minutes.`,
+            });
+            await fetch(twilioUrl, {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${authString}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: body.toString(),
+            });
+          }
         } catch (smsErr) {
-          console.warn("Twilio SMS dispatch failed:", smsErr);
+          console.warn("Twilio dispatch failed:", smsErr);
         }
       }
 
       return {
         success: true,
-        message: `OTP code sent to ${cleanPhone}`,
+        message: channel === "whatsapp" ? `OTP sent via WhatsApp to ${cleanPhone}` : `OTP sent via SMS to ${cleanPhone}`,
         previewOtp: otp,
+        channel,
       };
     } catch (error: any) {
       console.error("Send OTP error:", error);
