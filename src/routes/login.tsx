@@ -256,13 +256,7 @@ function Login() {
         setResetPreviewOtp(res.previewOtp || null);
         setResetTimer(30);
 
-        if (res.previewOtp) {
-          toast.success(`Verification code sent to ${cleanEmail}! Demo Code: ${res.previewOtp}`, {
-            duration: 8000,
-          });
-        } else {
-          toast.success(`Verification code sent to ${cleanEmail}. Please check your inbox.`);
-        }
+        toast.success(`Verification code sent to ${cleanEmail}. Please check your inbox.`);
       } else {
         setErrorMsg(res.message || "Failed to send verification code.");
         toast.error(res.message || "Could not send verification code.");
@@ -482,24 +476,6 @@ function Login() {
                     </div>
                   )}
 
-                  {/* Dev / Testing Code Helper Banner */}
-                  {resetPreviewOtp && (
-                    <div className="mt-4 flex items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 p-3 text-xs">
-                      <div>
-                        <span className="font-semibold text-primary">Demo Reset Code: </span>
-                        <span className="font-mono font-bold tracking-wider text-foreground">
-                          {resetPreviewOtp}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setResetOtp(resetPreviewOtp)}
-                        className="rounded-lg bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
-                      >
-                        Auto-Fill
-                      </button>
-                    </div>
-                  )}
 
                   <form onSubmit={handleResetPasswordSubmit} className="mt-5 space-y-4">
                     {/* 6-Digit OTP Box */}
