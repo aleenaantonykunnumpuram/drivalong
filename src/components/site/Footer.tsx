@@ -84,9 +84,9 @@ export function Footer() {
             { to: "/services", label: "Round Trip" },
           ]} />
           <FooterCol title="Legal" links={[
-            { to: "/", label: "Privacy Policy" },
-            { to: "/", label: "Terms of Service" },
-            { to: "/", label: "Refund Policy" },
+            { to: "/privacy-policy", label: "Privacy Policy" },
+            { to: "/terms-of-service", label: "Terms of Service" },
+            { to: "/refund-policy", label: "Refund Policy" },
             { to: "/contact", label: "Support" },
           ]} />
         </div>

@@ -616,7 +616,16 @@ Thank you.`;
                 onChange={(e) => setTermsAgreed(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-white/30 bg-white/10 text-primary accent-[#F4B400] cursor-pointer"
               />
-              <span className="text-[11px] text-blue-100/90">I agree to the Terms & Cancellation Policy</span>
+              <span className="text-[11px] text-blue-100/90">
+                I agree to the{" "}
+                <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline text-[#F4B400] hover:text-white">
+                  Terms of Service
+                </a>{" "}
+                &{" "}
+                <a href="/refund-policy" target="_blank" rel="noopener noreferrer" className="underline text-[#F4B400] hover:text-white">
+                  Refund & Cancellation Policy
+                </a>
+              </span>
             </label>
           </div>
         </div>
