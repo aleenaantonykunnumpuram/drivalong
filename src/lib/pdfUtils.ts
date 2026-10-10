@@ -13,6 +13,7 @@ export interface RideSummaryData {
   duration?: string;
   transmission?: string;
   estimatedFare?: string | number;
+  driverId?: string;
   driverName?: string;
   driverPhone?: string;
   status?: string;
@@ -91,8 +92,8 @@ export function downloadRideSummaryReceipt(data: RideSummaryData) {
         <div class="value">${data.transmission || "Automatic"} Transmission</div>
       </div>
       <div>
-        <div class="label">Assigned Chauffeur</div>
-        <div class="value">${data.driverName && !data.driverName.includes("Rajesh") ? data.driverName : "Pending Admin Approval"}</div>
+        <div class="label">Driver ID</div>
+        <div class="value">${data.driverId || data.driverName || "DAL-DRV-0001"}</div>
       </div>
       <div>
         <div class="label">For Any Issues / Contact Us</div>
@@ -110,7 +111,7 @@ export function downloadRideSummaryReceipt(data: RideSummaryData) {
 
     <div class="notice">
       <strong>Payment & Confirmation Notice:</strong><br/>
-      The base service fee is listed above. The rest of the charges and final trip details will be communicated directly through WhatsApp by our booking team (<strong>+91 7306605416</strong>).
+      Our team is reviewing your booking. The admin/owner will confirm your booking and send payment details directly to you on WhatsApp (<strong>+91 7306605416</strong>) shortly.
     </div>
 
     <div class="footer">

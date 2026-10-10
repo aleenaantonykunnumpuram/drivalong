@@ -109,7 +109,36 @@ export const createBooking = createServerFn({ method: "POST" })
       throw new Error("Authentication required: You must be logged in to book a chauffeur.");
     }
 
-    const bookingId = "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000));
+    // Monthly sequential series: DAL-BK-YYYYMM-XXXX
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const prefix = `DAL-BK-${yearMonth}-`;
+
+    let nextSeq = 1;
+    try {
+      const tripsThisMonth = await Trip.find({ bookingId: new RegExp(`^${prefix}`) })
+        .select("bookingId")
+        .lean();
+
+      let maxSeq = 0;
+      for (const t of tripsThisMonth) {
+        if (t.bookingId) {
+          const match = t.bookingId.match(new RegExp(`^${prefix}(\\d{4})$`));
+          if (match) {
+            const seq = parseInt(match[1], 10);
+            if (!isNaN(seq) && seq > maxSeq) {
+              maxSeq = seq;
+            }
+          }
+        }
+      }
+      nextSeq = maxSeq + 1;
+    } catch {
+      nextSeq = 1;
+    }
+
+    const bookingId = `${prefix}${String(nextSeq).padStart(4, "0")}`;
+    const driverId = "DAL-DRV-0001";
 
     const trip = await Trip.create({
       bookingId,
@@ -117,8 +146,9 @@ export const createBooking = createServerFn({ method: "POST" })
       customerEmail: data.customerEmail ? data.customerEmail.toLowerCase().trim() : "",
       customerName: data.customerName || "Customer",
       customerPhone: data.customerPhone || "",
-      driverName: "Unassigned",
-      driverPhone: "",
+      driverId,
+      driverName: driverId,
+      driverPhone: "+91 7306605416",
       serviceType: data.serviceType,
       pickup: data.pickup,
       drop: data.drop || null,
@@ -140,7 +170,7 @@ export const createBooking = createServerFn({ method: "POST" })
       status: "pending",
     });
 
-    return { success: true as const, bookingId: trip.bookingId };
+    return { success: true as const, bookingId: trip.bookingId, driverId };
   });
 
 /**

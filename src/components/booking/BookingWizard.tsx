@@ -707,9 +707,11 @@ function Meta({ k, v }: { k: string; v: string }) {
 
 function StepConfirmation({ s }: { s: State }) {
   const { user } = useAuthUser();
-  const [bookingId, setBookingId] = useState<string>(
-    () => "DAL" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + String(Math.floor(1000 + Math.random() * 9000))
-  );
+  const [bookingId, setBookingId] = useState<string>(() => {
+    const now = new Date();
+    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+    return `DAL-BK-${yearMonth}-0001`;
+  });
 
   const hasSubmittedRef = useRef(false);
 
@@ -749,7 +751,7 @@ function StepConfirmation({ s }: { s: State }) {
       },
     })
       .then((res) => {
-        if (!cancelled && res.success) setBookingId(res.bookingId);
+        if (!cancelled && res.success && res.bookingId) setBookingId(res.bookingId);
       })
       .catch((err) => console.error("Failed to save booking:", err));
     return () => {
@@ -768,15 +770,16 @@ function StepConfirmation({ s }: { s: State }) {
       duration: s.duration,
       transmission: s.transmission,
       estimatedFare: `Base Fee: ₹${CHAUFFEUR_SERVICES[s.serviceType]?.baseFare || 299}`,
-      driverName: "Pending Admin Approval",
-      status: "Pending Admin Approval via WhatsApp (+91 7306605416)",
+      driverId: "DAL-DRV-0001",
+      driverName: "DAL-DRV-0001",
+      status: "Booking Submitted & Pending Approval via WhatsApp (+91 7306605416)",
       customerName: user?.name || "Verified Customer",
       customerEmail: user?.email || "",
     });
     toast.success(`Ride Summary Receipt generated for ${bookingId}`);
   };
 
-  const whatsappMessage = `Hello Driv A Long Team,\n\nI have submitted a booking request on your website and would like confirmation & payment details.\n\n*Booking ID:* ${bookingId}\n*Service:* ${s.serviceType}\n*Pickup:* ${s.pickup || "Pickup Location"}\n\nPlease assist me with approval. Thank you!`;
+  const whatsappMessage = `Hello Driv A Long Team,\n\nI have submitted a booking request on your website and would like confirmation & payment details.\n\n*Booking ID:* ${bookingId}\n*Service:* ${s.serviceType}\n*Driver ID:* DAL-DRV-0001\n*Pickup:* ${s.pickup || "Pickup Location"}\n\nPlease assist me with approval. Thank you!`;
   const whatsappUrl = `https://wa.me/917306605416?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
@@ -791,7 +794,7 @@ function StepConfirmation({ s }: { s: State }) {
         </div>
 
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
             🟡 Booking Submitted & Pending Approval
           </span>
           <h2 className="mt-3 text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
@@ -814,15 +817,16 @@ function StepConfirmation({ s }: { s: State }) {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-5">
-        {/* Driver Details Card */}
+        {/* Driver Details Card (Only Driver ID Series, No Driver Name) */}
         <div className="lg:col-span-2 rounded-3xl border border-border bg-background p-6 shadow-soft flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-full bg-[#0B2D7A] text-lg font-bold text-white shadow-md">
-                RK
+              <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#0B2D7A] text-lg font-bold text-[#F4B400] shadow-md border border-[#F4B400]/20">
+                <ShieldCheck className="h-8 w-8 text-[#F4B400]" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-foreground">Rajesh Kumar</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Assigned Driver</span>
+                <h3 className="text-lg font-mono font-extrabold text-foreground tracking-wide">DAL-DRV-0001</h3>
                 <p className="text-xs text-primary font-bold">Professional Chauffeur</p>
                 <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
                   <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Background Verified Chauffeur
@@ -831,10 +835,10 @@ function StepConfirmation({ s }: { s: State }) {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs border-t border-border pt-4">
+              <Meta k="Driver ID" v="DAL-DRV-0001" />
               <Meta k="Service Type" v={s.serviceType} />
               <Meta k="Payment Status" v="Pending Approval" />
               <Meta k="Driver Status" v="Pending Admin Approval" />
-              <Meta k="Contact Us / Support" v="+91 7306605416" />
             </div>
           </div>
 

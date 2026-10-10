@@ -25,6 +25,7 @@ const CustomerSchema = new mongoose.Schema({
   gender: { type: String },
   password: { type: String, required: true },
   role: { type: String, default: "customer" },
+  driverId: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -75,7 +76,8 @@ const TripSchema = new mongoose.Schema(
     customerEmail: { type: String, lowercase: true, index: true },
     customerName: String,
     customerPhone: String,
-    driverName: { type: String, default: "Unassigned" },
+    driverId: { type: String, default: "DAL-DRV-0001" },
+    driverName: { type: String, default: "DAL-DRV-0001" },
     driverEmail: { type: String, default: "" },
     driverPhone: { type: String, default: "" },
     serviceType: { type: String, default: "Hourly Chauffeur" },
@@ -250,9 +252,16 @@ const server = http.createServer(async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        let driverId = undefined;
+        if (assignedRole === "rider") {
+          const riderCount = await Customer.countDocuments({ role: "rider" });
+          driverId = `DAL-DRV-${String(riderCount + 1).padStart(4, "0")}`;
+        }
+
         // Save into MongoDB RIDE database
         const newCustomer = await Customer.create({
-          name: name.trim(),
+          name: assignedRole === "rider" ? driverId : name.trim(),
+          driverId,
           email: email.toLowerCase().trim(),
           phone: phone ? phone.trim() : "",
           age: Number(age) || 0,
@@ -271,6 +280,7 @@ const server = http.createServer(async (req, res) => {
             user: {
               id: newCustomer._id,
               name: newCustomer.name,
+              driverId: newCustomer.driverId,
               email: newCustomer.email,
               phone: newCustomer.phone,
               age: newCustomer.age,
@@ -421,7 +431,36 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      const bookingId = "DAL" + Math.floor(100000 + Math.random() * 900000);
+      // Monthly sequential series: DAL-BK-YYYYMM-XXXX
+      const now = new Date();
+      const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const prefix = `DAL-BK-${yearMonth}-`;
+
+      let nextSeq = 1;
+      try {
+        const tripsThisMonth = await Trip.find({ bookingId: new RegExp(`^${prefix}`) })
+          .select("bookingId")
+          .lean();
+
+        let maxSeq = 0;
+        for (const t of tripsThisMonth) {
+          if (t.bookingId) {
+            const match = t.bookingId.match(new RegExp(`^${prefix}(\\d{4})$`));
+            if (match) {
+              const seq = parseInt(match[1], 10);
+              if (!isNaN(seq) && seq > maxSeq) {
+                maxSeq = seq;
+              }
+            }
+          }
+        }
+        nextSeq = maxSeq + 1;
+      } catch {
+        nextSeq = 1;
+      }
+
+      const bookingId = `${prefix}${String(nextSeq).padStart(4, "0")}`;
+      const driverId = "DAL-DRV-0001";
 
       const trip = await Trip.create({
         bookingId,
@@ -429,9 +468,10 @@ const server = http.createServer(async (req, res) => {
         customerEmail: customerEmail ? customerEmail.toLowerCase().trim() : "",
         customerName: customerName || "Customer",
         customerPhone: customerPhone || "",
-        driverName: "Unassigned",
+        driverId,
+        driverName: driverId,
         driverEmail: "",
-        driverPhone: "",
+        driverPhone: "+91 7306605416",
         serviceType: serviceType || "Hourly Chauffeur",
         pickup,
         drop: drop || null,
@@ -469,18 +509,20 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url === "/api/bookings/assign") {
     try {
       const body = await readJsonBody(req);
-      const { bookingId, driverName, driverEmail, driverPhone, bookingStatus } = body;
+      const { bookingId, driverId, driverName, driverEmail, driverPhone, bookingStatus } = body;
+      const assignedDriver = driverId || driverName || "DAL-DRV-0001";
 
-      if (!bookingId || !driverName) {
+      if (!bookingId || !assignedDriver) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ success: false, message: "bookingId and driverName are required." }));
+        res.end(JSON.stringify({ success: false, message: "bookingId and driverId are required." }));
         return;
       }
 
       const updatedTrip = await Trip.findOneAndUpdate(
         { bookingId },
         {
-          driverName,
+          driverId: assignedDriver,
+          driverName: assignedDriver,
           driverEmail: driverEmail ? driverEmail.toLowerCase().trim() : "",
           driverPhone: driverPhone || "",
           bookingStatus: bookingStatus || "Assigned",

@@ -40,6 +40,7 @@ interface CustomerAccount {
 
 interface DriverAccount {
   _id?: string;
+  driverId?: string;
   name: string;
   email: string;
   phone: string;
@@ -137,7 +138,7 @@ function AdminPanel() {
               id: t.bookingId,
               customer: t.customerName || t.customerEmail || "Guest Customer",
               customerEmail: t.customerEmail || "",
-              driver: t.driverName || "Unassigned",
+              driver: t.driverId || (t.driverName && !t.driverName.includes("Rajesh") && !t.driverName.includes("Unassigned") ? t.driverName : "DAL-DRV-0001"),
               serviceType: t.serviceType || "Round-Trip Chauffeur",
               pickup: t.pickup?.address || "Pickup Location",
               duration: t.duration || "4 Hours",
@@ -268,6 +269,8 @@ function AdminPanel() {
   const handleAssignDriver = async (bookingId: string, driverEmail: string) => {
     const selectedDriver = drivers.find((d) => d.email === driverEmail);
     if (!selectedDriver) return;
+    const driverIndex = drivers.findIndex((d) => d.email === driverEmail);
+    const assignedDriverId = selectedDriver.driverId || (selectedDriver.name?.startsWith("DAL-DRV-") ? selectedDriver.name : `DAL-DRV-${String(driverIndex + 1).padStart(4, "0")}`);
 
     try {
       const res = await fetch(`${API_BASE}/api/bookings/assign`, {
@@ -275,7 +278,8 @@ function AdminPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookingId,
-          driverName: selectedDriver.name,
+          driverId: assignedDriverId,
+          driverName: assignedDriverId,
           driverEmail: selectedDriver.email,
           driverPhone: selectedDriver.phone,
           bookingStatus: "Assigned",
@@ -283,7 +287,7 @@ function AdminPanel() {
       }).then((r) => r.json());
 
       if (res.success) {
-        toast.success(`Assigned driver ${selectedDriver.name} to booking ${bookingId}`);
+        toast.success(`Assigned driver ${assignedDriverId} to booking ${bookingId}`);
         fetchBookings();
       } else {
         toast.error(res.message || "Failed to assign driver.");
@@ -459,6 +463,13 @@ function AdminPanel() {
                           <span className="font-mono text-xs font-bold text-primary">{b.id}</span>
                           <span className="text-xs font-bold text-foreground">{b.serviceType}</span>
                           <span className="rounded-full bg-subtle px-2 py-0.5 text-[10px] font-semibold">{b.duration}</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            b.status === "Approved" || b.status === "Assigned" ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30" :
+                            b.status === "Pending" ? "bg-amber-500/10 text-amber-600 border border-amber-500/30" :
+                            "bg-destructive/10 text-destructive border border-destructive/30"
+                          }`}>
+                            {b.status === "Pending" ? "🟡 Pending Approval" : b.status === "Approved" ? "🟢 Approved" : b.status === "Assigned" ? "🔵 Assigned" : b.status}
+                          </span>
                         </div>
                         <p className="text-xs text-muted-foreground">Customer: <strong className="text-foreground">{b.customer}</strong> ({b.customerEmail})</p>
                         <p className="text-xs text-muted-foreground">Pickup: <span className="font-medium text-foreground">{b.pickup}</span></p>
@@ -479,14 +490,17 @@ function AdminPanel() {
                           )}
 
                           <select
-                            value={drivers.some((d) => d.name === b.driver) ? drivers.find((d) => d.name === b.driver)?.email : ""}
+                            value={drivers.some((d) => d.name === b.driver || d.driverId === b.driver) ? drivers.find((d) => d.name === b.driver || d.driverId === b.driver)?.email : ""}
                             onChange={(e) => handleAssignDriver(b.id, e.target.value)}
                             className="rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-semibold outline-none"
                           >
-                            <option value="">Assign Chauffeur ({b.driver})</option>
-                            {drivers.map((d) => (
-                              <option key={d.email} value={d.email}>{d.name} ({d.phone})</option>
-                            ))}
+                            <option value="">Driver: {b.driver || "Unassigned"}</option>
+                            {drivers.map((d, idx) => {
+                              const dId = d.driverId || (d.name?.startsWith("DAL-DRV-") ? d.name : `DAL-DRV-${String(idx + 1).padStart(4, "0")}`);
+                              return (
+                                <option key={d.email} value={d.email}>{dId} ({d.phone || d.email})</option>
+                              );
+                            })}
                           </select>
                         </div>
                       </div>
@@ -640,23 +654,27 @@ function AdminPanel() {
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
-                {drivers.map((d, i) => (
-                  <div key={i} className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600 font-bold text-base">
-                        {d.name.charAt(0).toUpperCase()}
+                {drivers.map((d, i) => {
+                  const dId = d.driverId || (d.name?.startsWith("DAL-DRV-") ? d.name : `DAL-DRV-${String(i + 1).padStart(4, "0")}`);
+                  return (
+                    <div key={i} className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-3">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0B2D7A] text-[#F4B400] font-bold text-base shadow-sm">
+                          <ShieldCheck className="h-6 w-6 text-[#F4B400]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Driver ID</span>
+                          <h3 className="font-mono font-bold text-base text-foreground truncate">{dId}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{d.email}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-base truncate">{d.name}</h3>
-                        <p className="text-xs text-muted-foreground truncate">{d.email}</p>
+                      <div className="border-t border-border pt-3 text-xs space-y-1.5 text-muted-foreground">
+                        <div className="flex justify-between"><span>Phone</span><span className="font-medium text-foreground">{d.phone || "—"}</span></div>
+                        <div className="flex justify-between"><span>Role</span><span className="font-bold text-emerald-600 uppercase text-[10px]">Verified Chauffeur</span></div>
                       </div>
                     </div>
-                    <div className="border-t border-border pt-3 text-xs space-y-1.5 text-muted-foreground">
-                      <div className="flex justify-between"><span>Phone</span><span className="font-medium text-foreground">{d.phone || "—"}</span></div>
-                      <div className="flex justify-between"><span>Role</span><span className="font-bold text-emerald-600 uppercase text-[10px]">Verified Chauffeur</span></div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
