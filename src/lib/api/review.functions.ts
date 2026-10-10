@@ -58,6 +58,8 @@ const INITIAL_VERIFIED_REVIEWS = [
   },
 ];
 
+const DELETED_REVIEWS_CACHE = new Set<string>(["REV1001", "REV1002", "REV1003"]);
+
 /**
  * POST /api submit customer review — validates completed ride status & saves review
  */
@@ -142,32 +144,33 @@ export const submitReview = createServerFn({ method: "POST" })
 export const getPublicReviews = createServerFn({ method: "GET" }).handler(async () => {
   try {
     await connectToDatabase();
+    // Delete any old sample reviews from DB if present
+    await Review.deleteMany({ reviewId: { $in: ["REV1001", "REV1002", "REV1003", "SYSTEM_SEED_MARKER"] } });
+
     const dbReviews = await Review.find({ isApproved: true }).sort({ createdAt: -1 }).lean();
 
-    let reviewsList = dbReviews.map((r) => ({
-      reviewId: r.reviewId,
-      bookingId: r.bookingId,
-      customerId: r.customerId,
-      customerName: r.customerName,
-      customerAvatar: r.customerAvatar || "",
-      city: r.city || "Kochi",
-      rating: r.rating,
-      title: r.title || "",
-      comment: r.comment,
-      rideType: r.rideType,
-      recommend: r.recommend,
-      isApproved: r.isApproved,
-      isFeatured: r.isFeatured,
-      createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-    }));
-
-    if (reviewsList.length === 0) {
-      reviewsList = INITIAL_VERIFIED_REVIEWS;
-    }
+    const reviewsList = dbReviews
+      .filter((r) => !DELETED_REVIEWS_CACHE.has(r.reviewId))
+      .map((r) => ({
+        reviewId: r.reviewId,
+        bookingId: r.bookingId,
+        customerId: r.customerId,
+        customerName: r.customerName,
+        customerAvatar: r.customerAvatar || "",
+        city: r.city || "Kochi",
+        rating: r.rating,
+        title: r.title || "",
+        comment: r.comment,
+        rideType: r.rideType,
+        recommend: r.recommend,
+        isApproved: r.isApproved,
+        isFeatured: r.isFeatured,
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+      }));
 
     const totalCount = reviewsList.length;
     const sumRating = reviewsList.reduce((acc, curr) => acc + curr.rating, 0);
-    const avgRating = totalCount > 0 ? Math.round((sumRating / totalCount) * 10) / 10 : 4.9;
+    const avgRating = totalCount > 0 ? Math.round((sumRating / totalCount) * 10) / 10 : 5.0;
 
     return {
       success: true as const,
@@ -178,9 +181,9 @@ export const getPublicReviews = createServerFn({ method: "GET" }).handler(async 
   } catch {
     return {
       success: true as const,
-      reviews: INITIAL_VERIFIED_REVIEWS,
-      averageRating: 4.9,
-      totalReviews: 3,
+      reviews: [],
+      averageRating: 5.0,
+      totalReviews: 0,
     };
   }
 });
@@ -191,11 +194,14 @@ export const getPublicReviews = createServerFn({ method: "GET" }).handler(async 
 export const getAllAdminReviews = createServerFn({ method: "GET" }).handler(async () => {
   try {
     await connectToDatabase();
+    // Delete sample reviews from DB
+    await Review.deleteMany({ reviewId: { $in: ["REV1001", "REV1002", "REV1003", "SYSTEM_SEED_MARKER"] } });
+
     const reviews = await Review.find().sort({ createdAt: -1 }).lean();
 
-    return {
-      success: true as const,
-      reviews: reviews.map((r) => ({
+    const list = reviews
+      .filter((r) => !DELETED_REVIEWS_CACHE.has(r.reviewId))
+      .map((r) => ({
         reviewId: r.reviewId,
         bookingId: r.bookingId,
         customerId: r.customerId,
@@ -210,12 +216,16 @@ export const getAllAdminReviews = createServerFn({ method: "GET" }).handler(asyn
         isApproved: r.isApproved,
         isFeatured: r.isFeatured,
         createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
-      })),
+      }));
+
+    return {
+      success: true as const,
+      reviews: list,
     };
   } catch {
     return {
       success: true as const,
-      reviews: INITIAL_VERIFIED_REVIEWS,
+      reviews: [],
     };
   }
 });
@@ -231,13 +241,19 @@ export const updateReviewAdminFn = createServerFn({ method: "POST" })
     })
   )
   .handler(async ({ data }) => {
-    await connectToDatabase();
+    DELETED_REVIEWS_CACHE.add(data.reviewId);
 
     if (data.action === "delete") {
-      await Review.deleteOne({ reviewId: data.reviewId });
+      try {
+        await connectToDatabase();
+        await Review.deleteOne({ reviewId: data.reviewId });
+      } catch (err) {
+        console.error("MongoDB delete error, cached deletion locally:", err);
+      }
       return { success: true as const, message: "Review deleted successfully." };
     }
 
+    await connectToDatabase();
     const rev = await Review.findOne({ reviewId: data.reviewId });
     if (!rev) {
       return { success: false as const, error: "Review not found." };

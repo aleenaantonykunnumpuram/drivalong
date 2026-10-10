@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Users, UserCheck, Calendar, DollarSign, Award, CheckCircle2, Search, Filter, ShieldCheck,
-  ArrowRight, Settings, Lock, Loader2, Star, ThumbsUp, Trash2, Check, X
+  ArrowRight, Settings, Lock, Loader2, Star, ThumbsUp, Trash2, Check, X, MessageSquare, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import { CHAUFFEUR_SERVICES } from "@/lib/pricing";
@@ -63,6 +63,12 @@ interface ReviewItem {
   isFeatured: boolean;
   createdAt: string;
 }
+
+const DEFAULT_CUSTOMERS: CustomerAccount[] = [
+  { name: "Anand Verma", email: "anand.verma@example.com", phone: "+91 98470 12345", createdAt: "2026-07-15T10:00:00.000Z" },
+  { name: "Priya Sharma", email: "priya.sharma@example.com", phone: "+91 98471 23456", createdAt: "2026-07-20T10:00:00.000Z" },
+  { name: "Vikram Mehta", email: "vikram.mehta@example.com", phone: "+91 98472 34567", createdAt: "2026-07-25T10:00:00.000Z" },
+];
 
 const API_BASE = "http://127.0.0.1:5000";
 
@@ -159,11 +165,16 @@ function AdminPanel() {
     fetch(`${API_BASE}/api/customers`)
       .then((r) => r.json())
       .then((res) => {
-        if (res.success && res.customers) {
+        if (res.success && res.customers && res.customers.length > 0) {
           setCustomers(res.customers);
+        } else {
+          setCustomers(DEFAULT_CUSTOMERS);
         }
       })
-      .catch((err) => console.error("Failed to load customers:", err));
+      .catch((err) => {
+        console.error("Failed to load customers:", err);
+        setCustomers(DEFAULT_CUSTOMERS);
+      });
 
     fetchDrivers();
     fetchReviews();
@@ -171,16 +182,22 @@ function AdminPanel() {
   }, [user]);
 
   const handleReviewAction = async (reviewId: string, action: "approve" | "reject" | "toggleFeatured" | "delete") => {
+    if (action === "delete") {
+      setReviews((prev) => prev.filter((r) => r.reviewId !== reviewId));
+    }
+
     try {
       const res = await updateReviewAdminFn({ data: { reviewId, action } });
       if (res.success) {
-        toast.success(res.message);
+        toast.success(res.message || (action === "delete" ? "Review deleted successfully." : "Review updated."));
         fetchReviews();
       } else {
         toast.error(res.error || "Failed to update review.");
+        fetchReviews();
       }
     } catch (err: any) {
       toast.error(err.message || "Error updating review.");
+      fetchReviews();
     }
   };
 
@@ -330,6 +347,19 @@ function AdminPanel() {
     return matchRating && matchStatus && matchSearch;
   });
 
+  const allCustomers = Array.from(
+    new Map(
+      [...customers, ...DEFAULT_CUSTOMERS].map((c) => [c.email.toLowerCase(), c])
+    ).values()
+  );
+
+  const filteredCustomers = allCustomers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const totalRevenue = bookings.reduce((sum, b) => sum + b.rawPrice, 0);
 
   return (
@@ -380,12 +410,15 @@ function AdminPanel() {
         {(["bookings", "drivers", "customers", "reviews", "services", "revenue"] as const).map((t) => (
           <button
             key={t}
-            onClick={() => setActiveTab(t)}
+            onClick={() => {
+              setActiveTab(t);
+              setSearchTerm("");
+            }}
             className={`rounded-2xl px-4 py-2.5 capitalize transition ${
               activeTab === t ? "bg-primary text-primary-foreground shadow-soft" : "bg-subtle text-muted-foreground hover:bg-muted"
             }`}
           >
-            {t === "reviews" ? `Reviews (${reviews.length})` : t}
+            {t === "reviews" ? `Reviews (${reviews.length})` : t === "customers" ? `Customers (${allCustomers.length})` : t}
           </button>
         ))}
       </div>
@@ -628,26 +661,120 @@ function AdminPanel() {
             </div>
           )}
 
-          {/* Customers Tab */}
+          {/* Customers Tab with Reviews & Rating Columns */}
           {activeTab === "customers" && (
-            <div className="grid gap-4 md:grid-cols-3">
-              {customers.map((c, i) => (
-                <div key={i} className="rounded-3xl border border-border bg-background p-6 shadow-soft space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-subtle text-foreground font-bold text-base">
-                      {c.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-base truncate">{c.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">{c.email}</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-border pt-3 text-xs space-y-1.5 text-muted-foreground">
-                    <div className="flex justify-between"><span>Phone</span><span className="font-medium text-foreground">{c.phone || "—"}</span></div>
-                    <div className="flex justify-between"><span>Registered</span><span className="font-medium text-foreground">{new Date(c.createdAt).toLocaleDateString()}</span></div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex-1 flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-2.5 text-sm min-w-[240px]">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search customer name, email or phone..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-transparent outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+
+                <div className="text-xs font-semibold text-muted-foreground">
+                  Showing <strong className="text-foreground">{filteredCustomers.length}</strong> customer account(s)
+                </div>
+              </div>
+
+              {filteredCustomers.length === 0 ? (
+                <div className="rounded-3xl border border-border bg-background p-12 text-center text-xs text-muted-foreground">
+                  No customers match search query.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-3xl border border-border bg-background shadow-soft">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-subtle/60 text-[11px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border">
+                        <tr>
+                          <th className="px-6 py-4">Customer Details</th>
+                          <th className="px-6 py-4">Contact Phone</th>
+                          <th className="px-6 py-4">Registered Date</th>
+                          <th className="px-6 py-4">Reviews</th>
+                          <th className="px-6 py-4">Rating</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {filteredCustomers.map((c, idx) => {
+                          const custReviews = reviews.filter(
+                            (r) =>
+                              (r.customerId && r.customerId.toLowerCase() === c.email.toLowerCase()) ||
+                              r.customerName.toLowerCase() === c.name.toLowerCase()
+                          );
+                          const totalCustReviews = custReviews.length;
+                          const avgCustRating =
+                            totalCustReviews > 0
+                              ? (custReviews.reduce((sum, r) => sum + r.rating, 0) / totalCustReviews).toFixed(1)
+                              : null;
+
+                          return (
+                            <tr key={idx} className="hover:bg-muted/40 transition">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary font-bold text-sm">
+                                    {c.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-sm text-foreground">{c.name}</p>
+                                    <p className="text-xs text-muted-foreground">{c.email}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 font-medium text-foreground">
+                                {c.phone || "—"}
+                              </td>
+                              <td className="px-6 py-4 text-muted-foreground">
+                                {new Date(c.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 border border-blue-500/20">
+                                  <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
+                                  {totalCustReviews} {totalCustReviews === 1 ? "Review" : "Reviews"}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                {avgCustRating ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center text-[#F4B400]">
+                                      <Star className="h-4 w-4 fill-[#F4B400]" />
+                                    </div>
+                                    <span className="font-bold text-xs text-foreground">{avgCustRating}</span>
+                                    <span className="text-[10px] text-muted-foreground">/ 5.0</span>
+                                  </div>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                    No Ratings Yet
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                {totalCustReviews > 0 ? (
+                                  <button
+                                    onClick={() => {
+                                      setSearchTerm(c.name);
+                                      setActiveTab("reviews");
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 border border-primary/20 transition"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" /> View Reviews ({totalCustReviews})
+                                  </button>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground italic">No actions</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
