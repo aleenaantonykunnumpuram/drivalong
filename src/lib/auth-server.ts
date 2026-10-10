@@ -355,7 +355,6 @@ export const sendPasswordResetOtpFn = createServerFn({ method: "POST" })
       return {
         success: true,
         message: `Verification code sent to ${cleanEmail}`,
-        previewOtp: otp,
       };
     } catch (error: any) {
       console.error("Send password reset OTP error:", error);
