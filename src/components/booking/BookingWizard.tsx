@@ -484,9 +484,6 @@ ${s.transmission === "automatic" ? "Automatic" : "Manual"}
 💰 Base Service Fee:
 ${baseFareStr}
 
-📝 Note:
-The rest of the charges and final trip details will be communicated directly through WhatsApp.
-
 Please confirm my booking and contact me.
 
 Thank you.`;
@@ -599,21 +596,11 @@ Thank you.`;
 
           <div className="mt-2 text-3xl font-extrabold tracking-tight text-white">{baseFareStr}</div>
 
-          {/* Base Fee & WhatsApp Note Card */}
-          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs space-y-3 text-blue-100/90 border border-white/10">
-            <div className="flex justify-between items-center text-xs font-semibold text-white border-b border-white/10 pb-2">
+          {/* Base Fee Card */}
+          <div className="mt-4 rounded-2xl bg-white/10 p-3.5 backdrop-blur text-xs text-blue-100/90 border border-white/10">
+            <div className="flex justify-between items-center text-xs font-semibold text-white">
               <span>Base Service Fee</span>
               <span className="text-[#F4B400] text-sm font-bold">{baseFareStr}</span>
-            </div>
-
-            {/* Note that rest will be communicated via WhatsApp */}
-            <div className="rounded-xl bg-white/5 p-3 text-[11px] text-blue-100/95 leading-relaxed border border-white/10 space-y-1">
-              <div className="font-bold flex items-center gap-1.5 text-white">
-                <span>📝 Note:</span>
-              </div>
-              <p className="text-blue-200">
-                The rest of the charges and final trip details will be communicated directly through WhatsApp by our booking team.
-              </p>
             </div>
           </div>
 
